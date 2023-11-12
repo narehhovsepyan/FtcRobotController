@@ -1,75 +1,52 @@
-/* Copyright (c) 2022 FIRST. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted (subject to the limitations in the disclaimer below) provided that
- * the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this list
- * of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice, this
- * list of conditions and the following disclaimer in the documentation and/or
- * other materials provided with the distribution.
- *
- * Neither the name of FIRST nor the names of its contributors may be used to endorse or
- * promote products derived from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY THIS
- * LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
 package org.firstinspires.ftc.teamcode;
 
+// import com.qualcomm.hardware.motors.RevRoboticsCoreHexMotor;
+
+import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
-/*
- * This file works in conjunction with the External Hardware Class sample called: ConceptExternalHardwareClass.java
- * Please read the explanations in that Sample about how to use this class definition.
- *
- * This file defines a Java Class that performs all the setup and configuration for a sample robot's hardware (motors and sensors).
- * It assumes three motors (left_drive, right_drive and arm) and two servos (left_hand and right_hand)
- *
- * This one file/class can be used by ALL of your OpModes without having to cut & paste the code each time.
- *
- * Where possible, the actual hardware objects are "abstracted" (or hidden) so the OpMode code just makes calls into the class,
- * rather than accessing the internal hardware directly. This is why the objects are declared "private".
- *
- * Use Android Studio to Copy this Class, and Paste it into your team's code folder with *exactly the same name*.
- *
- * Or... In OnBot Java, add a new file named RobotHardware.java, select this sample, and select Not an OpMode.
- * Also add a new OpMode, select the sample ConceptExternalHardwareClass.java, and select TeleOp.
- *
- */
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
+import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 public class ChickalettaHardware {
-
     /* Declare OpMode members. */
     private LinearOpMode myOpMode = null;   // gain access to methods in the calling OpMode.
 
     // Define Motor and Servo objects  (Make them private so they can't be accessed externally)
-    private DcMotor leftDrive   = null;
-    private DcMotor rightDrive  = null;
-    private DcMotor armMotor = null;
-    private Servo   leftHand = null;
-    private Servo   rightHand = null;
+    private final ElapsedTime runtime = new ElapsedTime();
+    private DcMotor leftFrontDrive = null;
+    private DcMotor leftBackDrive = null;
+    private DcMotor rightFrontDrive = null;
+    private DcMotor rightBackDrive = null;
+
+    private DcMotor spinTake = null;
+
+    private DcMotor arm = null;
+    private BNO055IMU imu = null;
+    private double robotHeading = 0;
+    private double headingOffset = 0;
+    private double headingError = 0;
+    private double targetHeading = 0;
+    static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
+    static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
+    static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
+    static final double COUNTS_PER_INCH = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
+            (WHEEL_DIAMETER_INCHES * Math.PI);
+    static final double DRIVE_SPEED = 0.6;
+    static final double TURN_SPEED = 1.0;
+    private double turnSpeed = 0;
+    static final double     P_TURN_GAIN            = 0.008;     // Larger is more responsive, but also less stable
+    static final double     P_DRIVE_GAIN           = 0.02;     // Larger is more responsive, but also less stable
+    static final double     HEADING_THRESHOLD       = 5.0 ;
+
 
     // Define Drive constants.  Make them public so they CAN be used by the calling OpMode
-    public static final double MID_SERVO       =  0.5 ;
-    public static final double HAND_SPEED      =  0.02 ;  // sets rate to move servo
-    public static final double ARM_UP_POWER    =  0.45 ;
-    public static final double ARM_DOWN_POWER  = -0.45 ;
 
     // Define a constructor that allows the OpMode to pass a reference to itself.
     public ChickalettaHardware(LinearOpMode opmode) {
@@ -82,86 +59,202 @@ public class ChickalettaHardware {
      * <p>
      * All of the hardware devices are accessed via the hardware map, and initialized.
      */
-    public void init()    {
+
+    public void init() {
         // Define and Initialize Motors (note: need to use reference to actual OpMode).
-        leftDrive  = myOpMode.hardwareMap.get(DcMotor.class, "left_drive");
-        rightDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_drive");
-        armMotor   = myOpMode.hardwareMap.get(DcMotor.class, "arm");
+        leftFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_front_drive");
+        leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
+        rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
+        rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
+        arm = myOpMode.hardwareMap.get(DcMotor.class, "arm");
+        spinTake = myOpMode.hardwareMap.get(DcMotor.class, "spin_take");
+
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
-        leftDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightDrive.setDirection(DcMotor.Direction.FORWARD);
-
-        // If there are encoders connected, switch to RUN_USING_ENCODER mode for greater accuracy
-        // leftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        // rightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
-        // Define and initialize ALL installed servos.
-        leftHand = myOpMode.hardwareMap.get(Servo.class, "left_hand");
-        rightHand = myOpMode.hardwareMap.get(Servo.class, "right_hand");
-        leftHand.setPosition(MID_SERVO);
-        rightHand.setPosition(MID_SERVO);
-
+        leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+        leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+        rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
+        imu = myOpMode.hardwareMap.get(BNO055IMU.class, "imu");
+        imu.initialize(parameters);
+        resetHeading();
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
     }
 
-    /**
-     * Calculates the left/right motor powers required to achieve the requested
-     * robot motions: Drive (Axial motion) and Turn (Yaw motion).
-     * Then sends these power levels to the motors.
-     *
-     * @param Drive     Fwd/Rev driving power (-1.0 to 1.0) +ve is forward
-     * @param Turn      Right/Left turning power (-1.0 to 1.0) +ve is CW
-     */
-    public void driveRobot(double Drive, double Turn) {
-        // Combine drive and turn for blended motion.
-        double left  = Drive + Turn;
-        double right = Drive - Turn;
 
-        // Scale the values so neither exceed +/- 1.0
-        double max = Math.max(Math.abs(left), Math.abs(right));
-        if (max > 1.0)
-        {
-            left /= max;
-            right /= max;
+    public void straightByEncoder(double speed, double distance, double timeout) {
+        int newLeftFrontTarget;
+        int newLeftBackTarget;
+        int newRightFrontTarget;
+        int newRightBackTarget;
+
+        if (myOpMode.opModeIsActive()) {
+            DcMotor.RunMode oldMotorMode = leftFrontDrive.getMode();
+
+            setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+            // Determine new target position, and pass to motor controller
+            newLeftFrontTarget = leftFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+            newLeftBackTarget = leftBackDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+            newRightFrontTarget = rightFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+            newRightBackTarget = rightFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+            leftFrontDrive.setTargetPosition(newLeftFrontTarget);
+            leftBackDrive.setTargetPosition(newLeftBackTarget);
+            rightFrontDrive.setTargetPosition(newRightFrontTarget);
+            rightBackDrive.setTargetPosition(newRightBackTarget);
+
+            setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+            runtime.reset();
+            leftFrontDrive.setPower(Math.abs(speed));
+            leftBackDrive.setPower(Math.abs(speed));
+            rightFrontDrive.setPower(Math.abs(speed));
+            rightBackDrive.setPower(Math.abs(speed));
+
+            while (myOpMode.opModeIsActive() &&
+                    (runtime.seconds() < timeout) &&
+                    (leftFrontDrive.isBusy() && leftBackDrive.isBusy() && rightFrontDrive.isBusy() && rightBackDrive.isBusy())) {
+
+                // Display it for the driver.
+                myOpMode.telemetry.addData("Running to", " lf:%7d lb:%7d rf:%7d rb:%7d", newLeftFrontTarget, newLeftBackTarget, newRightFrontTarget, newRightBackTarget);
+                myOpMode.telemetry.addData("Currently at", " at lf:%7d lb:%7d rf:%7d rb:%7d",
+                        leftFrontDrive.getCurrentPosition(), leftBackDrive.getCurrentPosition(), rightFrontDrive.getCurrentPosition(), rightBackDrive.getCurrentPosition());
+                myOpMode.telemetry.update();
+            }
+
+            stop();
+            setMotorMode(oldMotorMode);
+            myOpMode.sleep(250);
+        }
+    }
+
+    public void driveTimed(double axial, double lateral, double yaw, double time) {
+        setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        driveRobot(axial, lateral, yaw);
+        runtime.reset();
+        while (myOpMode.opModeIsActive() && (runtime.seconds() < time)) {
+            myOpMode.telemetry.addData("Path", "Leg 1: %4.1f S Elapsed", runtime.seconds());
+            myOpMode.telemetry.update();
+        }
+        stop();
+    }
+
+    public void strafe(double strafe_power) {
+        driveRobot(0.0, strafe_power, 0.0);
+    }
+
+    public void strafeTimed(double lateral, double time) {
+        setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        driveRobot(0, lateral, 0);
+        runtime.reset();
+        while (myOpMode.opModeIsActive() && (runtime.seconds() < time)) {
+            myOpMode.telemetry.addData("Path", "Leg 1: %4.1f S Elapsed", runtime.seconds());
+            myOpMode.telemetry.update();
+        }
+        stop();
+    }
+
+    public void driveRobot(double axial, double lateral, double yaw) {
+        double max;
+
+
+        // Combine the joystick requests for each axis-motion to determine each wheel's power.
+        // Set up a variable for each drive wheel to save the power level for telemetry.
+        double leftFrontPower = axial + lateral + yaw;
+        double rightFrontPower = axial - lateral - yaw;
+        double leftBackPower = axial - lateral + yaw;
+        double rightBackPower = axial + lateral - yaw;
+
+        // Normalize the values so no wheel power exceeds 100%
+        // This ensures that the robot maintains the desired motion.
+        max = Math.max(Math.abs(leftFrontPower), Math.abs(rightFrontPower));
+        max = Math.max(max, Math.abs(leftBackPower));
+        max = Math.max(max, Math.abs(rightBackPower));
+
+        if (max > 1.0) {
+            leftFrontPower /= max;
+            rightFrontPower /= max;
+            leftBackPower /= max;
+            rightBackPower /= max;
         }
 
-        // Use existing function to drive both wheels.
-        setDrivePower(left, right);
+        leftFrontDrive.setPower(leftFrontPower);
+        rightFrontDrive.setPower(rightFrontPower);
+        leftBackDrive.setPower(leftBackPower);
+        rightBackDrive.setPower(rightBackPower);
+        myOpMode.telemetry.addData("Front left/Right", "%4.2f, %4.2f", leftFrontPower, rightFrontPower);
+        myOpMode.telemetry.addData("Back left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
     }
 
-    /**
-     * Pass the requested wheel motor powers to the appropriate hardware drive motors.
-     *
-     * @param leftWheel     Fwd/Rev driving power (-1.0 to 1.0) +ve is forward
-     * @param rightWheel    Fwd/Rev driving power (-1.0 to 1.0) +ve is forward
-     */
-    public void setDrivePower(double leftWheel, double rightWheel) {
-        // Output the values to the motor drives.
-        leftDrive.setPower(leftWheel);
-        rightDrive.setPower(rightWheel);
+
+
+   public void arm(double arm_power) {
+        arm.setPower(arm_power);
+        myOpMode.telemetry.addData("arm", "%4.2f", arm_power);
     }
 
-    /**
-     * Pass the requested arm power to the appropriate hardware drive motor
-     *
-     * @param power driving power (-1.0 to 1.0)
-     */
-    public void setArmPower(double power) {
-        armMotor.setPower(power);
+    public void spinTake(double intake_power) {
+        spinTake.setPower(intake_power);
+        myOpMode.telemetry.addData("spinTake", "%4.2f", spinTake);
     }
 
-    /**
-     * Send the two hand-servos to opposing (mirrored) positions, based on the passed offset.
-     *
-     * @param offset
-     */
-    public void setHandPositions(double offset) {
-        offset = Range.clip(offset, -0.5, 0.5);
-        leftHand.setPosition(MID_SERVO + offset);
-        rightHand.setPosition(MID_SERVO - offset);
+
+    public void setMotorMode(DcMotor.RunMode motorMode) {
+        leftFrontDrive.setMode(motorMode);
+        leftBackDrive.setMode(motorMode);
+        rightFrontDrive.setMode(motorMode);
+        rightBackDrive.setMode(motorMode);
     }
+
+    public double getRawHeading() {
+        Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        return angles.firstAngle;}
+    public void resetHeading() {
+        // Save a new heading offset equal to the current raw heading.
+        headingOffset = getRawHeading();
+        robotHeading = 0;}
+    public double getSteeringCorrection(double desiredHeading, double proportionalGain) {
+        targetHeading = desiredHeading;  // Save for telemetry
+        // Get the robot heading by applying an offset to the IMU heading
+        robotHeading = getRawHeading() - headingOffset;
+        // Determine the heading current error
+        headingError = targetHeading - robotHeading;
+        // Normalize the error to be within +/- 180 degrees
+        while (headingError > 180) headingError -= 360;
+        while (headingError <= -180) headingError += 360;
+        // Multiply the error by the gain to determine the required steering correction/  Limit the result to +/- 1.0
+        return Range.clip(headingError * proportionalGain, -1, 1);}
+    public void turnToHeading(double maxTurnSpeed, double heading) {
+        getSteeringCorrection(heading, P_DRIVE_GAIN);
+        while (myOpMode.opModeIsActive() && (Math.abs(headingError) > HEADING_THRESHOLD)) {
+            // Determine required steering to keep on heading
+            turnSpeed = getSteeringCorrection(heading, P_TURN_GAIN);
+            // Clip the speed to the maximum permitted value.
+            turnSpeed = Range.clip(turnSpeed, -maxTurnSpeed, maxTurnSpeed);
+            // Pivot in place by applying the turning correction
+            driveRobot(0, 0, -turnSpeed);}
+        stop();
+    }
+
+    public void stop() {
+        driveRobot(0, 0, 0);
+    //    slide(0);
+    }
+
+    public void straight(double power) {
+        driveRobot(power, 0, 0);
+    }
+
+    public void straightTimed(double power, double time) {
+        driveTimed(power, 0, 0, time);
+    }
+
+
 }
+
