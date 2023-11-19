@@ -62,16 +62,19 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="Teleop 2024", group="Linear Opmode")
+@TeleOp(name = "Teleop 2024", group = "Linear Opmode")
 //@Disabled
 public class ChickalettaTeleop extends LinearOpMode {
 
     // Declare OpMode members for each of the 4 motors.
-    ChickalettaHardware robot      = new ChickalettaHardware(this);
+    ChickalettaHardware robot = new ChickalettaHardware(this);
     private final ElapsedTime runtime = new ElapsedTime();
-   // @Override
+
+
+    // @Override
     public void runOpMode() {
-    robot.init();
+        robot.init();
+
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -83,45 +86,56 @@ public class ChickalettaTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             double max;
 
-            double gp1LY=gamepad1.left_stick_y;
-            double gp1LX=gamepad1.left_stick_x;
-            double gp1RX=gamepad1.right_stick_x;
-            double slowscale=0.33333333333;
-            if (gamepad1.right_bumper){
+            double gp1LY = gamepad1.left_stick_y;
+            double gp1LX = gamepad1.left_stick_x;
+            double gp1RX = gamepad1.right_stick_x;
+            double slowscale = 0.33333333333;
+            if (gamepad1.right_bumper) {
                 gp1LY *= slowscale;
                 gp1LX *= slowscale;
                 gp1RX *= slowscale;
             }
             robot.driveRobot(-gp1LY, gp1LX, gp1RX);
 
-            // If the slide goes the wrong way, change the negative sign!!!!!!!
-            double arm_position;
-            if (gamepad2.dpad_down) {
-                arm_position = 1.0;
-            }
-            else if (gamepad2.dpad_up) {
-                arm_position = -1.0;
+
+            double intake_position;
+            if (gamepad2.a) {
+                intake_position = .5;
+            } else if (gamepad2.b) {
+                intake_position = -.5;
             } else {
-                arm_position = 0.0;
+                intake_position = 0.0;
             }
-            robot.arm(arm_position);
-         }
+            robot.spinTake(intake_position);
 
-        double intake_position;
-        if (gamepad1.dpad_down) {
-            intake_position= 1.0;
+
+            // If the slide goes the wrong way, change the negative sign!!!!!!!
+
+            if (gamepad2.dpad_down) {
+                robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
+            } else if (gamepad2.dpad_up) {
+                robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
+            }
+
+
+            if (gamepad2.left_bumper) {
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
+                robot.setHandCenter();
+            }
+
+            if (gamepad2.x) {
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MAX);
+            }
+
+            if (gamepad2.right_bumper) {
+                robot.setHandLeft();
+            }
+
+            if (gamepad2.y) {
+                robot.setHandCenter();
+            }
         }
-        else if (gamepad1.dpad_up) {
-            intake_position = -1.0;
-        } else {
-            intake_position = 0.0;
-        }
-        robot.spinTake(intake_position);
-    }
-
-
-
-
 
 
     }
+}
