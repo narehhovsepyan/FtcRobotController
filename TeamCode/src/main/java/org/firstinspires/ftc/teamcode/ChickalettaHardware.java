@@ -2,7 +2,8 @@ package org.firstinspires.ftc.teamcode;
 
 // import com.qualcomm.hardware.motors.RevRoboticsCoreHexMotor;
 
-import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -28,7 +29,7 @@ public class ChickalettaHardware {
     private DcMotor spinTake = null;
 
     private DcMotor arm = null;
-    private BNO055IMU imu = null;
+    private IMU imu = null;
     private double robotHeading = 0;
     private double headingOffset = 0;
     private double headingError = 0;
@@ -41,9 +42,9 @@ public class ChickalettaHardware {
     static final double DRIVE_SPEED = 0.6;
     static final double TURN_SPEED = 1.0;
     private double turnSpeed = 0;
-    static final double     P_TURN_GAIN            = 0.008;     // Larger is more responsive, but also less stable
-    static final double     P_DRIVE_GAIN           = 0.02;     // Larger is more responsive, but also less stable
-    static final double     HEADING_THRESHOLD       = 5.0 ;
+    static final double P_TURN_GAIN = 0.008;     // Larger is more responsive, but also less stable
+    static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
+    static final double HEADING_THRESHOLD = 5.0;
 
 
     // Define Drive constants.  Make them public so they CAN be used by the calling OpMode
@@ -77,10 +78,16 @@ public class ChickalettaHardware {
         leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
-        parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
-        imu = myOpMode.hardwareMap.get(BNO055IMU.class, "imu");
+
+        // Retrieve the IMU from the hardware map
+        imu = myOpMode.hardwareMap.get(IMU.class, "imu");
+         // Adjust the orientation parameters to match your robot
+        IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
+                RevHubOrientationOnRobot.LogoFacingDirection.UP,
+                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD));
+        // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
         imu.initialize(parameters);
+
         resetHeading();
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
@@ -160,9 +167,9 @@ public class ChickalettaHardware {
         stop();
     }
 
+
     public void driveRobot(double axial, double lateral, double yaw) {
         double max;
-
 
         // Combine the joystick requests for each axis-motion to determine each wheel's power.
         // Set up a variable for each drive wheel to save the power level for telemetry.
@@ -192,9 +199,35 @@ public class ChickalettaHardware {
         myOpMode.telemetry.addData("Back left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
     }
 
+    public void driveRobotFC(double axial, double lateral, double yaw) {
+        double y = axial;
+        double x = lateral;
+        double rx = yaw;
 
+        double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
 
-   public void arm(double arm_power) {
+        // Rotate the movement direction counter to the bot's rotation
+        double rotX = x * Math.cos(-botHeading) - y * Math.sin(-botHeading);
+        double rotY = x * Math.sin(-botHeading) + y * Math.cos(-botHeading);
+
+        rotX = rotX * 1.1;  // Counteract imperfect strafing
+
+        // Denominator is the largest motor power (absolute value) or 1
+        // This ensures all the powers maintain the same ratio,
+        // but only if at least one is out of the range [-1, 1]
+        double denominator = Math.max(Math.abs(rotY) + Math.abs(rotX) + Math.abs(rx), 1);
+        double frontLeftPower = (rotY + rotX + rx) / denominator;
+        double backLeftPower = (rotY - rotX + rx) / denominator;
+        double frontRightPower = (rotY - rotX - rx) / denominator;
+        double backRightPower = (rotY + rotX - rx) / denominator;
+
+        leftFrontDrive.setPower(frontLeftPower);
+        leftBackDrive.setPower(backLeftPower);
+        rightFrontDrive.setPower(frontRightPower);
+        rightBackDrive.setPower(backRightPower);
+    }
+
+    public void arm(double arm_power) {
         arm.setPower(arm_power);
         myOpMode.telemetry.addData("arm", "%4.2f", arm_power);
     }
@@ -213,12 +246,19 @@ public class ChickalettaHardware {
     }
 
     public double getRawHeading() {
-        Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        return angles.firstAngle;}
+        return imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+    }
+
     public void resetHeading() {
         // Save a new heading offset equal to the current raw heading.
         headingOffset = getRawHeading();
-        robotHeading = 0;}
+        robotHeading = 0;
+    }
+
+    public void resetYaw() {
+        imu.resetYaw();
+    }
+
     public double getSteeringCorrection(double desiredHeading, double proportionalGain) {
         targetHeading = desiredHeading;  // Save for telemetry
         // Get the robot heading by applying an offset to the IMU heading
@@ -229,7 +269,9 @@ public class ChickalettaHardware {
         while (headingError > 180) headingError -= 360;
         while (headingError <= -180) headingError += 360;
         // Multiply the error by the gain to determine the required steering correction/  Limit the result to +/- 1.0
-        return Range.clip(headingError * proportionalGain, -1, 1);}
+        return Range.clip(headingError * proportionalGain, -1, 1);
+    }
+
     public void turnToHeading(double maxTurnSpeed, double heading) {
         getSteeringCorrection(heading, P_DRIVE_GAIN);
         while (myOpMode.opModeIsActive() && (Math.abs(headingError) > HEADING_THRESHOLD)) {
@@ -238,13 +280,14 @@ public class ChickalettaHardware {
             // Clip the speed to the maximum permitted value.
             turnSpeed = Range.clip(turnSpeed, -maxTurnSpeed, maxTurnSpeed);
             // Pivot in place by applying the turning correction
-            driveRobot(0, 0, -turnSpeed);}
+            driveRobot(0, 0, -turnSpeed);
+        }
         stop();
     }
 
     public void stop() {
         driveRobot(0, 0, 0);
-    //    slide(0);
+        //    slide(0);
     }
 
     public void straight(double power) {
