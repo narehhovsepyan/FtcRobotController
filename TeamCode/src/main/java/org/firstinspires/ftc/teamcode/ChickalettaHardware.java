@@ -27,12 +27,26 @@ public class ChickalettaHardware {
 
     private DcMotor spinTake = null;
 
-    private DcMotor arm = null;
+    private Servo hand = null;
+    private Servo elbow = null;
+    private DcMotor shoulder = null;
+
     private BNO055IMU imu = null;
     private double robotHeading = 0;
     private double headingOffset = 0;
     private double headingError = 0;
     private double targetHeading = 0;
+
+    // Servo values for chopstick grabber
+    public static final double HAND_CENTER =  0.48 ;
+    public static final double HAND_RIGHT =  0.41 ;
+    public static final double HAND_LEFT =  0.53 ;
+    public static final double ELBOW_PICKUP = 0.05;
+    public static final double ELBOW_MAX = 0.65;
+    public static final double ELBOW_MIN = 0.05;
+    public static final int SHOULDER_STORED = 0;
+    public static final int SHOULDER_PICKUP = 50;
+    public static final int SHOULDER_BACKDROP = 250;
     static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
     static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
     static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
@@ -66,8 +80,10 @@ public class ChickalettaHardware {
         leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
-        arm = myOpMode.hardwareMap.get(DcMotor.class, "arm");
+        shoulder = myOpMode.hardwareMap.get(DcMotor.class, "arm");
         spinTake = myOpMode.hardwareMap.get(DcMotor.class, "spin_take");
+        hand = myOpMode.hardwareMap.get(Servo.class, "pickup_servo");
+        elbow = myOpMode.hardwareMap.get(Servo.class, "swivel_servo");
 
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
@@ -193,10 +209,9 @@ public class ChickalettaHardware {
     }
 
 
-
-   public void arm(double arm_power) {
-        arm.setPower(arm_power);
-        myOpMode.telemetry.addData("arm", "%4.2f", arm_power);
+   public void setShoulder(int shoulder_position) {
+        shoulder.setTargetPosition(shoulder_position);
+        myOpMode.telemetry.addData("shoulder", "%d", shoulder_position);
     }
 
     public void spinTake(double intake_power) {
@@ -255,6 +270,24 @@ public class ChickalettaHardware {
         driveTimed(power, 0, 0, time);
     }
 
+    public void setElbowPosition(double servo_position_elbow) {
+        elbow.setPosition(servo_position_elbow);
+        myOpMode.telemetry.addData("servo", "%4.2f", servo_position_elbow);
+    }
 
+    public void setHandCenter() {
+        hand.setPosition(HAND_CENTER);
+        myOpMode.telemetry.addData("chopstick", "center");
+    }
+
+    public void setHandRight() {
+        hand.setPosition(HAND_RIGHT);
+        myOpMode.telemetry.addData("chopstick", "right");
+    }
+
+    public void setHandLeft() {
+        hand.setPosition(HAND_LEFT);
+        myOpMode.telemetry.addData("chopstick", "left");
+    }
 }
 
