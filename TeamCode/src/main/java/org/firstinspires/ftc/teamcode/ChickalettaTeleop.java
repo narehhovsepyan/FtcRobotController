@@ -59,7 +59,12 @@ public class ChickalettaTeleop extends LinearOpMode {
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             double max;
-
+            // This button choice was made so that it is hard to hit on accident,
+            // it can be freely changed based on preference.
+            // The equivalent button is start on Xbox-style controllers.
+            if (gamepad1.options) {
+                robot.resetYaw();
+            }
             double gp1LY = gamepad1.left_stick_y;
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
@@ -69,7 +74,7 @@ public class ChickalettaTeleop extends LinearOpMode {
                 gp1LX *= slowscale;
                 gp1RX *= slowscale;
             }
-            robot.driveRobot(-gp1LY, gp1LX, gp1RX);
+            robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
 
             double intake_position;
@@ -82,8 +87,6 @@ public class ChickalettaTeleop extends LinearOpMode {
             }
             robot.spinTake(intake_position);
 
-
-            // If the slide goes the wrong way, change the negative sign!!!!!!!
 
             if (gamepad2.dpad_down) {
                 robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
@@ -109,7 +112,5 @@ public class ChickalettaTeleop extends LinearOpMode {
                 robot.setHandCenter();
             }
         }
-
-
     }
 }
