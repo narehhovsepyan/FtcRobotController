@@ -46,11 +46,9 @@ public class ChickalettaTeleop extends LinearOpMode {
     ChickalettaHardware robot = new ChickalettaHardware(this);
     private final ElapsedTime runtime = new ElapsedTime();
 
-
     // @Override
     public void runOpMode() {
         robot.init();
-
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();

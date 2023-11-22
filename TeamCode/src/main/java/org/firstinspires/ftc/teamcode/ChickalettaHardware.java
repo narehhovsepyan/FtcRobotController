@@ -97,6 +97,7 @@ public class ChickalettaHardware {
         parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
         imu = myOpMode.hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters);
+
         resetHeading();
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
@@ -176,9 +177,9 @@ public class ChickalettaHardware {
         stop();
     }
 
+
     public void driveRobot(double axial, double lateral, double yaw) {
         double max;
-
 
         // Combine the joystick requests for each axis-motion to determine each wheel's power.
         // Set up a variable for each drive wheel to save the power level for telemetry.
