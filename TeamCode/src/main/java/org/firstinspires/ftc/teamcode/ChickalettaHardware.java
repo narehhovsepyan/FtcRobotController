@@ -81,10 +81,10 @@ public class ChickalettaHardware {
         leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
-        shoulder = myOpMode.hardwareMap.get(DcMotor.class, "arm");
+        shoulder = myOpMode.hardwareMap.get(DcMotor.class, "shoulder");
         spinTake = myOpMode.hardwareMap.get(DcMotor.class, "spin_take");
-        hand = myOpMode.hardwareMap.get(Servo.class, "pickup_servo");
-        elbow = myOpMode.hardwareMap.get(Servo.class, "swivel_servo");
+        hand = myOpMode.hardwareMap.get(Servo.class, "hand_servo");
+        elbow = myOpMode.hardwareMap.get(Servo.class, "elbow_servo");
 
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
@@ -94,6 +94,10 @@ public class ChickalettaHardware {
         leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
+
+        shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shoulder.setMode(DcMotor.RunMode.RUN_TO_POSITION)
+        shoulder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Retrieve the IMU from the hardware map
         imu = myOpMode.hardwareMap.get(IMU.class, "imu");
