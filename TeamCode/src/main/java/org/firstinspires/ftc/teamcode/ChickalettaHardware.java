@@ -38,9 +38,9 @@ public class ChickalettaHardware {
     private double targetHeading = 0;
 
     // Servo values for chopstick grabber
-    public static final double HAND_CENTER =  0.48 ;
-    public static final double HAND_RIGHT =  0.41 ;
-    public static final double HAND_LEFT =  0.53 ;
+    public static final double HAND_CENTER = 0.48;
+    public static final double HAND_RIGHT = 0.41;
+    public static final double HAND_LEFT = 0.53;
     public static final double ELBOW_PICKUP = 0.05;
     public static final double ELBOW_MAX = 0.65;
     public static final double ELBOW_MIN = 0.05;
@@ -55,9 +55,9 @@ public class ChickalettaHardware {
     static final double DRIVE_SPEED = 0.6;
     static final double TURN_SPEED = 1.0;
     private double turnSpeed = 0;
-    static final double     P_TURN_GAIN            = 0.008;     // Larger is more responsive, but also less stable
-    static final double     P_DRIVE_GAIN           = 0.02;     // Larger is more responsive, but also less stable
-    static final double     HEADING_THRESHOLD       = 5.0 ;
+    static final double P_TURN_GAIN = 0.008;     // Larger is more responsive, but also less stable
+    static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
+    static final double HEADING_THRESHOLD = 5.0;
 
 
     // Define Drive constants.  Make them public so they CAN be used by the calling OpMode
@@ -209,7 +209,7 @@ public class ChickalettaHardware {
     }
 
 
-   public void setShoulder(int shoulder_position) {
+    public void setShoulder(int shoulder_position) {
         shoulder.setTargetPosition(shoulder_position);
         myOpMode.telemetry.addData("shoulder", "%d", shoulder_position);
     }
@@ -229,11 +229,15 @@ public class ChickalettaHardware {
 
     public double getRawHeading() {
         Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        return angles.firstAngle;}
+        return angles.firstAngle;
+    }
+
     public void resetHeading() {
         // Save a new heading offset equal to the current raw heading.
         headingOffset = getRawHeading();
-        robotHeading = 0;}
+        robotHeading = 0;
+    }
+
     public double getSteeringCorrection(double desiredHeading, double proportionalGain) {
         targetHeading = desiredHeading;  // Save for telemetry
         // Get the robot heading by applying an offset to the IMU heading
@@ -244,7 +248,9 @@ public class ChickalettaHardware {
         while (headingError > 180) headingError -= 360;
         while (headingError <= -180) headingError += 360;
         // Multiply the error by the gain to determine the required steering correction/  Limit the result to +/- 1.0
-        return Range.clip(headingError * proportionalGain, -1, 1);}
+        return Range.clip(headingError * proportionalGain, -1, 1);
+    }
+
     public void turnToHeading(double maxTurnSpeed, double heading) {
         getSteeringCorrection(heading, P_DRIVE_GAIN);
         while (myOpMode.opModeIsActive() && (Math.abs(headingError) > HEADING_THRESHOLD)) {
@@ -253,13 +259,14 @@ public class ChickalettaHardware {
             // Clip the speed to the maximum permitted value.
             turnSpeed = Range.clip(turnSpeed, -maxTurnSpeed, maxTurnSpeed);
             // Pivot in place by applying the turning correction
-            driveRobot(0, 0, -turnSpeed);}
+            driveRobot(0, 0, -turnSpeed);
+        }
         stop();
     }
 
     public void stop() {
         driveRobot(0, 0, 0);
-    //    slide(0);
+        //    slide(0);
     }
 
     public void straight(double power) {
