@@ -28,12 +28,26 @@ public class ChickalettaHardware {
 
     private DcMotor spinTake = null;
 
-    private DcMotor arm = null;
+    private Servo hand = null;
+    private Servo elbow = null;
+    private DcMotor shoulder = null;
+
     private IMU imu = null;
     private double robotHeading = 0;
     private double headingOffset = 0;
     private double headingError = 0;
     private double targetHeading = 0;
+
+    // Servo values for chopstick grabber
+    public static final double HAND_CENTER = 0.00;
+    public static final double HAND_RIGHT = 0.00;
+    public static final double HAND_LEFT = 0.25;
+    public static final double ELBOW_PICKUP = 0.085;
+    public static final double ELBOW_MAX = 0.75;
+    public static final double ELBOW_MIN = 0.02;
+    public static final int SHOULDER_STORED = 0;
+    public static final int SHOULDER_PICKUP = 30;
+    public static final int SHOULDER_BACKDROP = 300;
     static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
     static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
     static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
@@ -67,8 +81,10 @@ public class ChickalettaHardware {
         leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
-        arm = myOpMode.hardwareMap.get(DcMotor.class, "arm");
+        shoulder = myOpMode.hardwareMap.get(DcMotor.class, "shoulder");
         spinTake = myOpMode.hardwareMap.get(DcMotor.class, "spin_take");
+        hand = myOpMode.hardwareMap.get(Servo.class, "hand_servo");
+        elbow = myOpMode.hardwareMap.get(Servo.class, "elbow_servo");
 
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
@@ -78,6 +94,10 @@ public class ChickalettaHardware {
         leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        shoulder.setDirection(DcMotor.Direction.REVERSE);
+
+        shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shoulder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Retrieve the IMU from the hardware map
         imu = myOpMode.hardwareMap.get(IMU.class, "imu");
@@ -167,9 +187,9 @@ public class ChickalettaHardware {
         stop();
     }
 
-
     public void driveRobot(double axial, double lateral, double yaw) {
         double max;
+
 
         // Combine the joystick requests for each axis-motion to determine each wheel's power.
         // Set up a variable for each drive wheel to save the power level for telemetry.
@@ -227,9 +247,11 @@ public class ChickalettaHardware {
         rightBackDrive.setPower(backRightPower);
     }
 
-    public void arm(double arm_power) {
-        arm.setPower(arm_power);
-        myOpMode.telemetry.addData("arm", "%4.2f", arm_power);
+    public void setShoulder(int shoulder_position) {
+        shoulder.setTargetPosition(shoulder_position);
+        shoulder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        shoulder.setPower(.5);
+        myOpMode.telemetry.addData("shoulder", "%d", shoulder_position);
     }
 
     public void spinTake(double intake_power) {
@@ -298,6 +320,24 @@ public class ChickalettaHardware {
         driveTimed(power, 0, 0, time);
     }
 
+    public void setElbowPosition(double servo_position_elbow) {
+        elbow.setPosition(servo_position_elbow);
+        myOpMode.telemetry.addData("servo", "%4.2f", servo_position_elbow);
+    }
 
+    public void setHandCenter() {
+        hand.setPosition(HAND_CENTER);
+        myOpMode.telemetry.addData("chopstick", "center");
+    }
+
+    public void setHandRight() {
+        hand.setPosition(HAND_RIGHT);
+        myOpMode.telemetry.addData("chopstick", "right");
+    }
+
+    public void setHandLeft() {
+        hand.setPosition(HAND_LEFT);
+        myOpMode.telemetry.addData("chopstick", "left");
+    }
 }
 

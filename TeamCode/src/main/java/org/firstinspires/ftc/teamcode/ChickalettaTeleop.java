@@ -35,32 +35,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 
 /**
- * This file contains an example of a Linear "OpMode".
- * An OpMode is a 'program' that runs in either the autonomous or the teleop period of an FTC match.
- * The names of OpModes appear on the menu of the FTC Driver Station.
- * When a selection is made from the menu, the corresponding OpMode is executed.
- * <p>
- * This particular OpMode illustrates driving a 4-motor Omni-Directional (or Holonomic) robot.
- * This code will work with either a Mecanum-Drive or an X-Drive train.
- * Both of these drives are illustrated at https://gm0.org/en/latest/docs/robot-design/drivetrains/holonomic.html
- * Note that a Mecanum drive must display an X roller-pattern when viewed from above.
- * <p>
- * Also note that it is critical to set the correct rotation direction for each motor.  See details below.
- * <p>
- * Holonomic drives provide the ability for the robot to move in three axes (directions) simultaneously.
- * Each motion axis is controlled by one Joystick axis.
- * <p>
- * 1) Axial:    Driving forward and backward               Left-joystick Forward/Backward
- * 2) Lateral:  Strafing right and left                     Left-joystick Right and Left
- * 3) Yaw:      Rotating Clockwise and counter clockwise    Right-joystick Right and Left
- * <p>
- * This code is written assuming that the right-side motors need to be reversed for the robot to drive forward.
- * When you first test your robot, if it moves backward when you push the left stick forward, then you must flip
- * the direction of all 4 motors (see code below).
- * <p>
- * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
- * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
- */
+ * This file contains Teleop for Centerstage
+  */
 
 @TeleOp(name = "Teleop 2024", group = "Linear Opmode")
 //@Disabled
@@ -100,28 +76,44 @@ public class ChickalettaTeleop extends LinearOpMode {
             }
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
-            // If the slide goes the wrong way, change the negative sign!!!!!!!
-            double arm_position;
+
+            double intake_position;
             if (gamepad2.dpad_down) {
-                arm_position = 1.0;
+                intake_position = 1;
             } else if (gamepad2.dpad_up) {
-                arm_position = -1.0;
+                intake_position = -1;
             } else {
-                arm_position = 0.0;
+                intake_position = 0.0;
             }
-            robot.arm(arm_position);
-        }
+            robot.spinTake(intake_position);
 
-        double intake_position;
-        if (gamepad1.dpad_down) {
-            intake_position = 1.0;
-        } else if (gamepad1.dpad_up) {
-            intake_position = -1.0;
-        } else {
-            intake_position = 0.0;
+
+            if (gamepad2.a) {
+                robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+            }
+
+            if (gamepad2.y) {
+                robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MAX);
+            }
+
+            if (gamepad2.x) {
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+                sleep(750);
+                robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP);
+                sleep(750);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
+            }
+
+
+            if (gamepad2.right_bumper) {
+                robot.setHandLeft();
+            }
+
+            if (gamepad2.left_bumper) {
+                robot.setHandRight();
+            }
         }
-        robot.spinTake(intake_position);
     }
-
-
 }
