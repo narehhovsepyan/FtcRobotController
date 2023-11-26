@@ -39,15 +39,15 @@ public class ChickalettaHardware {
     private double targetHeading = 0;
 
     // Servo values for chopstick grabber
-    public static final double HAND_CENTER = 0.48;
-    public static final double HAND_RIGHT = 0.41;
-    public static final double HAND_LEFT = 0.53;
-    public static final double ELBOW_PICKUP = 0.05;
-    public static final double ELBOW_MAX = 0.65;
-    public static final double ELBOW_MIN = 0.05;
+    public static final double HAND_CENTER = 0.00;
+    public static final double HAND_RIGHT = 0.00;
+    public static final double HAND_LEFT = 0.25;
+    public static final double ELBOW_PICKUP = 0.085;
+    public static final double ELBOW_MAX = 0.75;
+    public static final double ELBOW_MIN = 0.02;
     public static final int SHOULDER_STORED = 0;
-    public static final int SHOULDER_PICKUP = 50;
-    public static final int SHOULDER_BACKDROP = 250;
+    public static final int SHOULDER_PICKUP = 30;
+    public static final int SHOULDER_BACKDROP = 300;
     static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
     static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
     static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
@@ -94,9 +94,9 @@ public class ChickalettaHardware {
         leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        shoulder.setDirection(DcMotor.Direction.REVERSE);
 
         shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        shoulder.setMode(DcMotor.RunMode.RUN_TO_POSITION)
         shoulder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Retrieve the IMU from the hardware map
@@ -249,6 +249,8 @@ public class ChickalettaHardware {
 
     public void setShoulder(int shoulder_position) {
         shoulder.setTargetPosition(shoulder_position);
+        shoulder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        shoulder.setPower(.5);
         myOpMode.telemetry.addData("shoulder", "%d", shoulder_position);
     }
 

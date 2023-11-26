@@ -78,38 +78,41 @@ public class ChickalettaTeleop extends LinearOpMode {
 
 
             double intake_position;
-            if (gamepad2.a) {
-                intake_position = .5;
-            } else if (gamepad2.b) {
-                intake_position = -.5;
+            if (gamepad2.dpad_down) {
+                intake_position = 1;
+            } else if (gamepad2.dpad_up) {
+                intake_position = -1;
             } else {
                 intake_position = 0.0;
             }
             robot.spinTake(intake_position);
 
 
-            if (gamepad2.dpad_down) {
+            if (gamepad2.a) {
                 robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
-            } else if (gamepad2.dpad_up) {
-                robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
             }
 
-
-            if (gamepad2.left_bumper) {
-                robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
-                robot.setHandCenter();
+            if (gamepad2.y) {
+                robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MAX);
             }
 
             if (gamepad2.x) {
-                robot.setElbowPosition(ChickalettaHardware.ELBOW_MAX);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+                sleep(750);
+                robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP);
+                sleep(750);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
             }
+
 
             if (gamepad2.right_bumper) {
                 robot.setHandLeft();
             }
 
-            if (gamepad2.y) {
-                robot.setHandCenter();
+            if (gamepad2.left_bumper) {
+                robot.setHandRight();
             }
         }
     }
