@@ -14,6 +14,10 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
+import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
+import org.firstinspires.ftc.vision.tfod.TfodProcessor;
+
+import java.util.List;
 
 public class ChickalettaHardware {
     /* Declare OpMode members. */
@@ -27,6 +31,7 @@ public class ChickalettaHardware {
     private DcMotor rightBackDrive = null;
 
     private DcMotor spinTake = null;
+    private TfodProcessor tfod;
 
     private Servo hand = null;
     private Servo elbow = null;
@@ -339,5 +344,23 @@ public class ChickalettaHardware {
         hand.setPosition(HAND_LEFT);
         myOpMode.telemetry.addData("chopstick", "left");
     }
+
+    public void sensing() {
+
+        List<Recognition> currentRecognitions = tfod.getRecognitions();
+        myOpMode.telemetry.addData("# Objects Detected %d" , currentRecognitions.size());
+        // Step through the list of recognitions and display info for each one.
+        for (Recognition recognition : currentRecognitions) {
+            double x = (recognition.getLeft() + recognition.getRight()) / 2 ;
+            double y = (recognition.getTop()  + recognition.getBottom()) / 2 ;
+
+
+            myOpMode.telemetry.addData(""," ");
+            myOpMode.telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100);
+            myOpMode.telemetry.addData("- Position", "%.0f / %.0f", x, y);
+            myOpMode.telemetry.addData("- Size", "%.0f x %.0f", recognition.getWidth(), recognition.getHeight());
+        }   // end for() loop
+
+    }   // end method telemetryTfod()
 }
 
