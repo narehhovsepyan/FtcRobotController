@@ -49,6 +49,7 @@ public class ChickalettaTeleop extends LinearOpMode {
     // @Override
     public void runOpMode() {
         robot.init();
+        robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -89,8 +90,9 @@ public class ChickalettaTeleop extends LinearOpMode {
 
 
             if (gamepad2.a) {
-                robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
                 robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+                sleep(300);
+                robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
             }
 
             if (gamepad2.y) {
@@ -101,11 +103,26 @@ public class ChickalettaTeleop extends LinearOpMode {
             if (gamepad2.x) {
                 robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
                 sleep(750);
-                robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP);
+                robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP2);
                 sleep(750);
                 robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
             }
 
+            if (gamepad2.dpad_right) {
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+                sleep(750);
+                robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP1);
+                sleep(750);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
+            }
+
+            if (gamepad2.dpad_left) {
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+                sleep(750);
+                robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP3);
+                sleep(750);
+                robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
+            }
 
             if (gamepad2.right_bumper) {
                 robot.setHandLeft();

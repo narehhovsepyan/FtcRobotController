@@ -41,13 +41,15 @@ public class ChickalettaHardware {
     // Servo values for chopstick grabber
     public static final double HAND_CENTER = 0.00;
     public static final double HAND_RIGHT = 0.00;
-    public static final double HAND_LEFT = 0.25;
-    public static final double ELBOW_PICKUP = 0.085;
-    public static final double ELBOW_MAX = 0.75;
-    public static final double ELBOW_MIN = 0.02;
-    public static final int SHOULDER_STORED = 0;
-    public static final int SHOULDER_PICKUP = 30;
-    public static final int SHOULDER_BACKDROP = 300;
+    public static final double HAND_LEFT = 0.40;
+    public static final double ELBOW_PICKUP = 0.250;
+    public static final double ELBOW_MAX = 0.90;
+    public static final double ELBOW_MIN = 0.00;
+    public static final int SHOULDER_STORED = 18;
+    public static final int SHOULDER_PICKUP1 = 60;
+    public static final int SHOULDER_PICKUP2 = 75;
+    public static final int SHOULDER_PICKUP3 = 50;
+    public static final int SHOULDER_BACKDROP = 285;
     static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
     static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
     static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
@@ -322,7 +324,7 @@ public class ChickalettaHardware {
 
     public void setElbowPosition(double servo_position_elbow) {
         elbow.setPosition(servo_position_elbow);
-        myOpMode.telemetry.addData("servo", "%4.2f", servo_position_elbow);
+        myOpMode.telemetry.addData("elbow", "%4.2f", servo_position_elbow);
     }
 
     public void setHandCenter() {
