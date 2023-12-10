@@ -10,14 +10,32 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
-import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
-import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
+import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.tfod.TfodProcessor;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class ChickalettaHardware {
     /* Declare OpMode members. */
     private LinearOpMode myOpMode = null;   // gain access to methods in the calling OpMode.
+
+    public enum Spike {LEFT, CENTER, RIGHT, UNKNOWN}
+
+    public static final double SPIKE_LEFT_MIN = 0.;
+    public static final double SPIKE_LEFT_MAX = 200.;
+    public static final double SPIKE_CENTER_MIN = 201.;
+    public static final double SPIKE_CENTER_MAX = 400.;
+    public static final double SPIKE_RIGHT_MIN = 401.;
+    public static final double SPIKE_RIGHT_MAX = 640.;
+
+    public enum PixelPickupState {IDLE_STATE, ELBOW_MIN_STATE, SHOULDER_PICKUP_STATE, ELBOW_PICKUP_STATE}
+    PixelPickupState pixelPickupState = PixelPickupState.IDLE_STATE;
+    ElapsedTime pixelPickupTimer;
 
     // Define Motor and Servo objects  (Make them private so they can't be accessed externally)
     private final ElapsedTime runtime = new ElapsedTime();
@@ -27,6 +45,16 @@ public class ChickalettaHardware {
     private DcMotor rightBackDrive = null;
 
     private DcMotor spinTake = null;
+    private static final boolean USE_WEBCAM = true;  // true for webcam, false for phone camera
+    /**
+     * The variable to store our instance of the TensorFlow Object Detection processor.
+     */
+    private TfodProcessor tfod;
+
+    /**
+     * The variable to store our instance of the vision portal.
+     */
+    private VisionPortal visionPortal;
 
     private Servo hand = null;
     private Servo elbow = null;
@@ -99,9 +127,11 @@ public class ChickalettaHardware {
         shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shoulder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        initTfod();
+
         // Retrieve the IMU from the hardware map
         imu = myOpMode.hardwareMap.get(IMU.class, "imu");
-         // Adjust the orientation parameters to match your robot
+        // Adjust the orientation parameters to match your robot
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.UP,
                 RevHubOrientationOnRobot.UsbFacingDirection.FORWARD));
@@ -113,6 +143,24 @@ public class ChickalettaHardware {
         myOpMode.telemetry.update();
     }
 
+    /**
+     * Initialize the TensorFlow Object Detection processor.
+     */
+    private void initTfod() {
+
+        // Create the TensorFlow processor the easy way.
+        tfod = TfodProcessor.easyCreateWithDefaults();
+
+        // Create the vision portal the easy way.
+        if (USE_WEBCAM) {
+            visionPortal = VisionPortal.easyCreateWithDefaults(
+                    myOpMode.hardwareMap.get(WebcamName.class, "Webcam 1"), tfod);
+        } else {
+            visionPortal = VisionPortal.easyCreateWithDefaults(
+                    BuiltinCameraDirection.BACK, tfod);
+        }
+
+    }   // end method initTfod()
 
     public void straightByEncoder(double speed, double distance, double timeout) {
         int newLeftFrontTarget;
@@ -223,15 +271,11 @@ public class ChickalettaHardware {
         double y = axial;
         double x = lateral;
         double rx = yaw;
-
         double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
-
         // Rotate the movement direction counter to the bot's rotation
         double rotX = x * Math.cos(-botHeading) - y * Math.sin(-botHeading);
         double rotY = x * Math.sin(-botHeading) + y * Math.cos(-botHeading);
-
         rotX = rotX * 1.1;  // Counteract imperfect strafing
-
         // Denominator is the largest motor power (absolute value) or 1
         // This ensures all the powers maintain the same ratio,
         // but only if at least one is out of the range [-1, 1]
@@ -240,7 +284,6 @@ public class ChickalettaHardware {
         double backLeftPower = (rotY - rotX + rx) / denominator;
         double frontRightPower = (rotY - rotX - rx) / denominator;
         double backRightPower = (rotY + rotX - rx) / denominator;
-
         leftFrontDrive.setPower(frontLeftPower);
         leftBackDrive.setPower(backLeftPower);
         rightFrontDrive.setPower(frontRightPower);
@@ -252,6 +295,10 @@ public class ChickalettaHardware {
         shoulder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         shoulder.setPower(.5);
         myOpMode.telemetry.addData("shoulder", "%d", shoulder_position);
+    }
+
+    public int shoulderPosition() {
+        return shoulder.getCurrentPosition();
     }
 
     public void spinTake(double intake_power) {
@@ -339,5 +386,68 @@ public class ChickalettaHardware {
         hand.setPosition(HAND_LEFT);
         myOpMode.telemetry.addData("chopstick", "left");
     }
+
+    public void startPixelPickup() {
+        pixelPickupTimer.reset();
+        pixelPickupState = PixelPickupState.ELBOW_MIN_STATE;
+        setElbowPosition(ELBOW_MIN);
+    }
+    public void advancePixelPickup() {
+        switch (pixelPickupState) {
+            case IDLE_STATE:
+                break;
+            case ELBOW_MIN_STATE:
+                if (pixelPickupTimer.now(TimeUnit.MILLISECONDS) > 750) {
+                    pixelPickupState = PixelPickupState.SHOULDER_PICKUP_STATE;
+                    setShoulder(SHOULDER_PICKUP);
+                }
+                break;
+            case SHOULDER_PICKUP_STATE:
+                if (shoulderPosition() >= SHOULDER_PICKUP) {
+                    pixelPickupState = PixelPickupState.ELBOW_PICKUP_STATE;
+                    pixelPickupTimer.reset();
+                    setElbowPosition(ELBOW_PICKUP);
+                }
+                break;
+            case ELBOW_PICKUP_STATE:
+                if (pixelPickupTimer.now(TimeUnit.MILLISECONDS) > 750) {
+                    pixelPickupState = PixelPickupState.IDLE_STATE;
+                }
+                break;
+        }
+    }
+
+    public void cancelPixelPickup() {
+        pixelPickupState = PixelPickupState.IDLE_STATE;
+    }
+    public Spike spikeSense() {
+
+        List<Recognition> currentRecognitions = tfod.getRecognitions();
+        myOpMode.telemetry.addData("# Objects Detected %d", currentRecognitions.size());
+        myOpMode.telemetry.update();
+        // Step through the list of recognitions and display info for each one.
+        for (Recognition recognition : currentRecognitions) {
+            double x = (recognition.getLeft() + recognition.getRight()) / 2;
+            double y = (recognition.getTop() + recognition.getBottom()) / 2;
+
+
+            myOpMode.telemetry.addData("", " ");
+            myOpMode.telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100);
+            myOpMode.telemetry.addData("- Position", "%.0f / %.0f", x, y);
+            myOpMode.telemetry.addData("- Size", "%.0f x %.0f", recognition.getWidth(), recognition.getHeight());
+            myOpMode.telemetry.update();
+
+            if (SPIKE_LEFT_MIN < x && x < SPIKE_LEFT_MAX) {
+                return Spike.LEFT;
+            } else if (SPIKE_CENTER_MIN < x && x < SPIKE_CENTER_MAX) {
+                return Spike.CENTER;
+            } else if (SPIKE_RIGHT_MIN < x && x < SPIKE_RIGHT_MAX) {
+                return Spike.RIGHT;
+            } else {
+                return Spike.UNKNOWN;
+            }
+        }   // end for() loop
+        return Spike.UNKNOWN;
+    }   // end method sensing()
 }
 

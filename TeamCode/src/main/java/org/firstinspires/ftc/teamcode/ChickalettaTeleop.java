@@ -33,6 +33,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.util.concurrent.TimeUnit;
+
 
 /**
  * This file contains Teleop for Centerstage
@@ -75,8 +77,6 @@ public class ChickalettaTeleop extends LinearOpMode {
                 gp1RX *= slowscale;
             }
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
-
-
             double intake_position;
             if (gamepad2.dpad_down) {
                 intake_position = 1;
@@ -87,30 +87,27 @@ public class ChickalettaTeleop extends LinearOpMode {
             }
             robot.spinTake(intake_position);
 
-
             if (gamepad2.a) {
                 robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
                 robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
             }
-
             if (gamepad2.y) {
                 robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
                 robot.setElbowPosition(ChickalettaHardware.ELBOW_MAX);
             }
-
             if (gamepad2.x) {
-                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
-                sleep(750);
-                robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP);
-                sleep(750);
-                robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
+                if (robot.pixelPickupState == ChickalettaHardware.PixelPickupState.IDLE_STATE) {
+                    robot.startPixelPickup();
+                } else {
+                    robot.cancelPixelPickup();
+                }
             }
-
-
+            if (robot.pixelPickupState != ChickalettaHardware.PixelPickupState.IDLE_STATE) {
+                robot.advancePixelPickup();
+            }
             if (gamepad2.right_bumper) {
                 robot.setHandLeft();
             }
-
             if (gamepad2.left_bumper) {
                 robot.setHandRight();
             }
