@@ -395,17 +395,20 @@ public class ChickalettaHardware {
         setElbowPosition(ELBOW_MIN);
     }
     public void advancePixelPickup() {
+        //may need to change to %d
+        myOpMode.telemetry.addData("%s", pixelPickupState);
+        myOpMode.telemetry.update();
         switch (pixelPickupState) {
             case IDLE_STATE:
                 break;
             case ELBOW_MIN_STATE:
                 if (pixelPickupTimer.now(TimeUnit.MILLISECONDS) > 750) {
                     pixelPickupState = PixelPickupState.SHOULDER_PICKUP_STATE;
-                    setShoulder(SHOULDER_PICKUP);
+                    setShoulder(SHOULDER_PICKUP1); //change 1 v 2 v 3 based on what value is working?? (nareh)
                 }
                 break;
-            case SHOULDER_PICKUP_STATE:
-                if (shoulderPosition() >= SHOULDER_PICKUP) {
+            case SHOULDER_PICKUP_STATE: //change SP 1 v 2 v 3 versus whats working (nareh)
+                if (shoulderPosition() >= SHOULDER_PICKUP2) {
                     pixelPickupState = PixelPickupState.ELBOW_PICKUP_STATE;
                     pixelPickupTimer.reset();
                     setElbowPosition(ELBOW_PICKUP);
