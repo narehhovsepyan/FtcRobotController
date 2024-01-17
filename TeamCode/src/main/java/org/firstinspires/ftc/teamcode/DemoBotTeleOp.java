@@ -40,12 +40,12 @@ import java.util.concurrent.TimeUnit;
  * This file contains Teleop for Centerstage
  */
 
-@TeleOp(name = "Teleop 2024", group = "Linear Opmode")
+@TeleOp(name = "DemoTele", group = "Linear Opmode")
 //@Disabled
-public class ChickalettaTeleop extends LinearOpMode {
+public class DemoBotTeleOp extends LinearOpMode {
 
     // Declare OpMode members for each of the 4 motors.
-    ChickalettaHardware robot = new ChickalettaHardware(this);
+    DemoBotHardware robot = new DemoBotHardware(this);
     private final ElapsedTime runtime = new ElapsedTime();
 
     // @Override
@@ -70,7 +70,7 @@ public class ChickalettaTeleop extends LinearOpMode {
             double gp1LY = gamepad1.left_stick_y;
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
-            double slowscale = .25;
+            double slowscale = 0.33333333333;
             if (gamepad1.right_bumper) {
                 gp1LY *= slowscale;
                 gp1LX *= slowscale;
@@ -79,79 +79,25 @@ public class ChickalettaTeleop extends LinearOpMode {
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
 
-            double intake_position;
-            if (gamepad2.dpad_down) {
-                intake_position = 1;
-            } else if (gamepad2.dpad_up) {
-                intake_position = -1;
-            } else {
-                intake_position = 0.0;
-            }
-            robot.spinTake(intake_position);
+            if (gamepad1.dpad_down) {
+                DemoBotHardware.spike spike = robot.spikeSense2();
 
-//modify shoulder stored and elbow min respective
-            if (gamepad2.a) {
-                resetRuntime();
-                robot.setShoulder(ChickalettaHardware.SHOULDER_UP);
-                if (runtime.milliseconds() > 1000) {
-                    robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
-                }
-                if (runtime.milliseconds() > 200) {
-                    robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+                robot.spikeSense2();
+                switch (spike) {
+
+                    case LEFT:
+                        robot.straightTimed(1,2);
+
+                    case CENTER:
+                        robot.straightTimed(1,2);
+                    //case UNKNOWN:
+                      //  robot.straightTimed(1,5);
+
+                    case RIGHT:
+                        robot.straightTimed(-1, 2);
+
                 }
             }
-            if (gamepad2.b) {
-                resetRuntime();
-                robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
-                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
-            }
-//modify shoulder backdrop and elbow max  (motor servo respective)
-
-            if (gamepad2.y) {
-                resetRuntime();
-                robot.makeShoulderSlow(0.5);
-                robot.setClampOpen();
-                robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
-                if (runtime.milliseconds() > 1100) {
-                    robot.setElbowPosition(ChickalettaHardware.ELBOW_MAX);
-                }
-                robot.makeShoulderFastAgain(.5);
-            }
-            if (gamepad2.dpad_left) {
-                resetRuntime();
-                robot.setShoulder(ChickalettaHardware.SHOULDER_UP);
-                if (runtime.milliseconds() > 1000) {
-                    robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
-                }
-                if (runtime.milliseconds() > 1000) {
-                    robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP2);
-                }
-            }
-            if (gamepad2.x) {
-                resetRuntime();
-                robot.startPixelPickup();
-                /* if (robot.pixelPickupState == ChickalettaHardware.PixelPickupState.IDLE_STATE) {
-                    robot.startPixelPickup();
-                } else {
-                    robot.cancelPixelPickup();
-                } */
-            }
-
-            if (robot.pixelPickupState != ChickalettaHardware.PixelPickupState.IDLE_STATE) {
-                robot.advancePixelPickup();
-            }
-            if (gamepad2.right_bumper) {
-                robot.setClampOpen();
-            }
-
-            if (gamepad2.left_bumper) {
-                robot.setClampClose();
-            }
-
-            if (gamepad2.back) {
-                robot.launchPlane();
-            }
-
         }
     }
 }

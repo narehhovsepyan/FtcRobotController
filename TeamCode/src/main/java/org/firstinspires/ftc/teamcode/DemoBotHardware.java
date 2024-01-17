@@ -6,7 +6,6 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -18,21 +17,21 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.tfod.TfodProcessor;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-public class ChickalettaHardware {
+public class DemoBotHardware {
     /* Declare OpMode members. */
     private LinearOpMode myOpMode = null;   // gain access to methods in the calling OpMode.
 
-    public enum spike {LEFT, CENTER, RIGHT}
+    public enum spike {LEFT, CENTER, RIGHT, UNKNOWN}
 
-    public static final double SPIKE_CENTER_MIN = 100.;
+    //public static final double SPIKE_LEFT_MIN = 0.; - ADD BACK IN IF THE LEFT NEEDS TO BE USED
+    //public static final double SPIKE_LEFT_MAX = 200.; - ADD BACK IN IF THE LEFT NEEDS TO BE USED
+    public static final double SPIKE_CENTER_MIN = 001.;
     public static final double SPIKE_CENTER_MAX = 400.;
-    public static final double SPIKE_RIGHT_MIN = 410;
-    public static final double SPIKE_RIGHT_MAX = 600.;
+    public static final double SPIKE_RIGHT_MIN = 400.;
+    public static final double SPIKE_RIGHT_MAX = 650.;
 
-
-    public enum PixelPickupState {IDLE_STATE, ELBOW_MIN_STATE, SHOULDER_PICKUP_STATE, ELBOW_PICKUP_STATE, SHOULDER_UP_STATE}
+    public enum PixelPickupState {IDLE_STATE, ELBOW_MIN_STATE, SHOULDER_PICKUP_STATE, ELBOW_PICKUP_STATE}
 
     PixelPickupState pixelPickupState = PixelPickupState.IDLE_STATE;
     ElapsedTime pixelPickupTimer;
@@ -44,7 +43,7 @@ public class ChickalettaHardware {
     private DcMotor rightFrontDrive = null;
     private DcMotor rightBackDrive = null;
 
-    private DcMotor spinTake = null;
+
     private static final boolean USE_WEBCAM = true;  // true for webcam, false for phone camera
     /**
      * The variable to store our instance of the TensorFlow Object Detection processor.
@@ -57,19 +56,12 @@ public class ChickalettaHardware {
     private VisionPortal visionPortal;
 
 
-    private Servo plane = null;
-    private Servo clamp = null;
-    private Servo elbow = null;
-
-    private DcMotor shoulder = null;
-
     private IMU imu = null;
     private double robotHeading = 0;
     private double headingOffset = 0;
     private double headingError = 0;
     private double targetHeading = 0;
 
-    // Servo values for chopstick grabber
 
     static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
     static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
@@ -79,29 +71,15 @@ public class ChickalettaHardware {
     static final double DRIVE_SPEED = 0.6;
     static final double TURN_SPEED = 1.0;
     private double turnSpeed = 0;
-    static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
+    static final double P_TURN_GAIN = 0.008;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
 
-    public static final int PLANE_LAUNCH = 0;
-
-
-    //need to play with these
-    public static final double CLAMP_CLOSE = 0.0;
-    public static final double CLAMP_OPEN = 0.25;
-    public static final double ELBOW_PICKUP = 0.21;
-    public static final double ELBOW_MAX = 0.87;
-    public static final double ELBOW_MIN = 0.1;
-    public static final int SHOULDER_STORED = 0;
-    public static final int SHOULDER_PICKUP1 = 19;
-    public static final int SHOULDER_PICKUP2 = 30;
-    public static final int SHOULDER_BACKDROP = 300;
-    public static final int SHOULDER_UP = 48;
 
     // Define Drive constants.  Make them public so they CAN be used by the calling OpMode
 
     // Define a constructor that allows the OpMode to pass a reference to itself.
-    public ChickalettaHardware(LinearOpMode opmode) {
+    public DemoBotHardware(LinearOpMode opmode) {
         myOpMode = opmode;
     }
 
@@ -119,24 +97,12 @@ public class ChickalettaHardware {
         leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
-        shoulder = myOpMode.hardwareMap.get(DcMotor.class, "shoulder");
-        spinTake = myOpMode.hardwareMap.get(DcMotor.class, "spin_take");
-        clamp = myOpMode.hardwareMap.get(Servo.class, "clamp_servo");
-        elbow = myOpMode.hardwareMap.get(Servo.class, "elbow_servo");
-        plane = myOpMode.hardwareMap.get(Servo.class, "plane_servo");
 
-
-        // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
-        // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
-        // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
         leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+        rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-        shoulder.setDirection(DcMotor.Direction.FORWARD);
 
-        shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        shoulder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         initTfod();
 
@@ -216,7 +182,7 @@ public class ChickalettaHardware {
 
             stop();
             setMotorMode(oldMotorMode);
-            myOpMode.sleep(500);
+            myOpMode.sleep(250);
         }
     }
 
@@ -282,7 +248,7 @@ public class ChickalettaHardware {
         double y = axial;
         double x = lateral;
         double rx = yaw;
-        double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS); //radians vs degrees
+        double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
         // Rotate the movement direction counter to the bot's rotation
         double rotX = x * Math.cos(-botHeading) - y * Math.sin(-botHeading);
         double rotY = x * Math.sin(-botHeading) + y * Math.cos(-botHeading);
@@ -301,30 +267,6 @@ public class ChickalettaHardware {
         rightBackDrive.setPower(backRightPower);
     }
 
-    public void setShoulder(int shoulder_position) {
-        shoulder.setTargetPosition(shoulder_position);
-        shoulder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        shoulder.setPower(0.5);
-        myOpMode.telemetry.addData("shoulder", "%d", shoulder_position);
-    }
-
-
-    public void makeShoulderSlow(double shoulder_speed_slow) {
-        shoulder.setPower(shoulder_speed_slow);
-    }
-
-    public void makeShoulderFastAgain(double shoulder_speed_faster) {
-        shoulder.setPower(shoulder_speed_faster);
-    }
-
-    public int shoulderPosition() {
-        return shoulder.getCurrentPosition();
-    }
-
-    public void spinTake(double intake_power) {
-        spinTake.setPower(intake_power);
-        myOpMode.telemetry.addData("spinTake", "%4.2f", spinTake);
-    }
 
 
     public void setMotorMode(DcMotor.RunMode motorMode) {
@@ -335,7 +277,7 @@ public class ChickalettaHardware {
     }
 
     public double getRawHeading() {
-        return imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+        return imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
     }
 
     public void resetHeading() {
@@ -366,11 +308,10 @@ public class ChickalettaHardware {
         while (myOpMode.opModeIsActive() && (Math.abs(headingError) > HEADING_THRESHOLD)) {
             // Determine required steering to keep on heading
             turnSpeed = getSteeringCorrection(heading, P_TURN_GAIN);
-            myOpMode.telemetry.addData("Heading- Target : Current", "%5.2f : %5.0f", targetHeading, (getRawHeading() - headingOffset)); // Clip the speed to the maximum permitted value.
-            myOpMode.telemetry.update();
+            // Clip the speed to the maximum permitted value.
             turnSpeed = Range.clip(turnSpeed, -maxTurnSpeed, maxTurnSpeed);
             // Pivot in place by applying the turning correction
-            driveRobot(0, 0, turnSpeed);
+            driveRobot(0, 0, -turnSpeed);
         }
         stop();
     }
@@ -387,101 +328,91 @@ public class ChickalettaHardware {
     public void straightTimed(double power, double time) {
         driveTimed(power, 0, 0, time);
     }
+public spike spikeSense2() {
+    List<Recognition> currentRecognitions = tfod.getRecognitions();
 
-    public void launchPlane() {
-        plane.setPosition(PLANE_LAUNCH);
-        myOpMode.telemetry.addData("plane", "PLANE_LAUNCH");
+    do {
+        currentRecognitions  = tfod.getRecognitions();
+        myOpMode.telemetry.addData("# Objects Detected %d", currentRecognitions.size());
+        myOpMode.telemetry.update();
 
-    }
-
-    //modify servo position elbow
-    public void setElbowPosition(double servo_position_elbow) {
-        elbow.setPosition(servo_position_elbow);
-        myOpMode.telemetry.addData("elbow", "%4.2f", servo_position_elbow);
-    }
-
-    //modify CLAMP_OPEN
-    public void setClampOpen() {
-        clamp.setPosition(CLAMP_OPEN);
-        myOpMode.telemetry.addData("chopstick", "right");
-    }
+        // Step through the list of recognitions and display info for each one.
+        for (Recognition recognition : currentRecognitions) {
+            double x = (recognition.getLeft() + recognition.getRight()) / 2;
+            double y = (recognition.getTop() + recognition.getBottom()) / 2;
 
 
-    //modify CLAMP_CLOSE
-    public void setClampClose() {
-        clamp.setPosition(CLAMP_CLOSE);
-        myOpMode.telemetry.addData("chopstick", "left");
-    }
-
-    //modify elbow min state
-    public void startPixelPickup() {
-        pixelPickupTimer.reset();
-        setElbowPosition(ELBOW_MIN);
-        pixelPickupState = PixelPickupState.SHOULDER_UP_STATE;
-    }
-
-    public void advancePixelPickup() {
-        switch (pixelPickupState) {
-            case IDLE_STATE:
-            case SHOULDER_UP_STATE:
-                runtime.reset();
-                if (runtime.now(TimeUnit.MILLISECONDS) > 1000) {
-                    setShoulder(SHOULDER_UP);
-                    pixelPickupState = PixelPickupState.ELBOW_MIN_STATE;
-                }
-            case ELBOW_MIN_STATE:
-                runtime.reset();
-                if (runtime.now(TimeUnit.MILLISECONDS) > 1000) {
-                    setShoulder(SHOULDER_PICKUP1);
-                    pixelPickupState = PixelPickupState.SHOULDER_PICKUP_STATE;
-                }
-            case SHOULDER_PICKUP_STATE:
-                pixelPickupState = PixelPickupState.ELBOW_PICKUP_STATE;
-                setElbowPosition(ELBOW_PICKUP);
-            case ELBOW_PICKUP_STATE:
-                if (runtime.now(TimeUnit.MILLISECONDS) > 500) {
-                    pixelPickupState = PixelPickupState.IDLE_STATE;
-                }
-
-        }
-    }
-
-    public void cancelPixelPickup() {
-        pixelPickupState = PixelPickupState.IDLE_STATE;
-    }
-
-    public void releasePixel(double time, double speed) {
-        spinTake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        runtime.reset();
-        while (myOpMode.opModeIsActive() && (runtime.seconds() < time)) {
-            spinTake.setPower(speed);
-        }
-        spinTake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        stop();
-    }
-
-    public DemoBotHardware.spike spikeSenseAuto() {
-        List<Recognition> currentRecognitions = tfod.getRecognitions();
-        do {
-            currentRecognitions = tfod.getRecognitions();
-            myOpMode.telemetry.addData("# Objects Detected %d", currentRecognitions.size());
+            myOpMode.telemetry.addData("", " ");
+            myOpMode.telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100);
+            myOpMode.telemetry.addData("- Position", "%.0f / %.0f", x, y);
+            myOpMode.telemetry.addData("- Size", "%.0f x %.0f", recognition.getWidth(), recognition.getHeight());
             myOpMode.telemetry.update();
 
-            // Step through the list of recognitions and display info for each one.
-            for (Recognition recognition : currentRecognitions) {
-                double x = (recognition.getLeft() + recognition.getRight()) / 2;
-                double y = (recognition.getTop() + recognition.getBottom()) / 2;
-                //telemetry
-                if (SPIKE_CENTER_MIN < x && x < SPIKE_CENTER_MAX) {
-                    return DemoBotHardware.spike.CENTER;
-                } else if (SPIKE_RIGHT_MIN < x && x < SPIKE_RIGHT_MAX) {
-                    return DemoBotHardware.spike.RIGHT;
-                } else {
-                    return DemoBotHardware.spike.LEFT;
-                }
+            if (SPIKE_CENTER_MIN < x && x < SPIKE_CENTER_MAX) {
+                return DemoBotHardware.spike.CENTER;
+            } else if (SPIKE_RIGHT_MIN < x && x < SPIKE_RIGHT_MAX) {
+                return DemoBotHardware.spike.RIGHT;
+            } else {
+                return DemoBotHardware.spike.LEFT;
             }
-        } while (runtime.seconds() <= 10);
-        return DemoBotHardware.spike.LEFT;
-    }
+
+        }
+    } while (runtime.seconds() <= 10);
+//currentRecognitions != null ||
+    return DemoBotHardware.spike.LEFT;
+}}
+
+
+
+
+
+
+
+
+
+
+    //else {
+        //return DemoBotHardware.spike.UNKNOWN;
+
+/**
+    public spike spikeSense() {
+
+        List<Recognition> currentRecognitions = tfod.getRecognitions();
+        myOpMode.telemetry.addData("# Objects Detected %d", currentRecognitions.size());
+        myOpMode.telemetry.update();
+        // Step through the list of recognitions and display info for each one.
+        for (Recognition recognition : currentRecognitions) {
+            double x = (recognition.getLeft() + recognition.getRight()) / 2;
+            double y = (recognition.getTop() + recognition.getBottom()) / 2;
+
+
+            myOpMode.telemetry.addData("", " ");
+            myOpMode.telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100);
+            myOpMode.telemetry.addData("- Position", "%.0f / %.0f", x, y);
+            myOpMode.telemetry.addData("- Size", "%.0f x %.0f", recognition.getWidth(), recognition.getHeight());
+            myOpMode.telemetry.update();
+
+//figure out the class vs enum vs how on earth you are trying to return a type intead of a variable
+//test if can actually return the value i want in teleop, then try in autonomous!!
+//do this meeting after 12/17/23
+
+
+
+
+
+
+            while (currentRecognitions == null) {
+                if (SPIKE_CENTER_MIN < x && x < SPIKE_CENTER_MAX) {
+                    return spike.CENTER;
+                } else if (SPIKE_RIGHT_MIN < x && x < SPIKE_RIGHT_MAX) {
+                    return spike.RIGHT;
+                } else {
+                    return spike.LEFT;
+                }
+            }   // end for() loop
+        }//end while
+        return spike.UNKNOWN;
+    }   // end method sensing()
 }
 
+**/
