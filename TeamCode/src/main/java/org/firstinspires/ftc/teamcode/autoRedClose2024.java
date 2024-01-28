@@ -82,13 +82,14 @@ public class autoRedClose2024 extends LinearOpMode {
 
     public void runOpMode() {
         robot.init();
-
+        robot.initTFOD();
         telemetry.addData("DS preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch Play to start OpMode");
         telemetry.update();
         waitForStart();
 
-
+        robot.straightByEncoder(.5,-2,10);
+        robot.turnToHeading(.5,-16);
         DemoBotHardware.spike spike = robot.spikeSenseAuto();
         // move forward
         // turn 180
@@ -97,28 +98,32 @@ public class autoRedClose2024 extends LinearOpMode {
         switch (spike) {
 
             case LEFT:
-                robot.straightByEncoder(1, -22.5, 15);
-                robot.turnToHeading(.25, -43);
-                robot.straightByEncoder(1, 4.6, 10);
-                robot.releasePixel(3, -.5);
-                robot.straightByEncoder(1, -3, 10);
-                robot.strafeTimed(-1, 5);
+                robot.turnToHeading(.5,16);
+                robot.straightByEncoder(1,-40,30);
+                robot.turnToHeading(.5,-45);
+                robot.straightByEncoder(1,7.5,5);
+                robot.releasePixel(2,-1);
+                robot.turnToHeading(1,45);
+                robot.straightByEncoder(1,-5.75,10);
+                robot.strafeTimed(-1,4);
                 break;
             case CENTER:
-                robot.straightByEncoder(1, -23.8, 20);
-                robot.releasePixel(3, -.25);
-                robot.strafeTimed(-1, 3);
+                robot.turnToHeading(.5,16);
+                robot.straightByEncoder(1,-46,30);
+                robot.releasePixel(2,-1);
+                robot.strafeTimed(-1,3);
                 break;
             case UNKNOWN:
                 robot.straightByEncoder(1, 10, 10);
                 robot.strafeTimed(1, 1);
                 break;
             case RIGHT:
-                robot.straightByEncoder(1, -22.5, 15);
-                robot.turnToHeading(.25, -43);
-                robot.releasePixel(3, -.5);
-                robot.straightByEncoder(1, -2.8, 10);
-                robot.strafeTimed(1, 5);
+                robot.turnToHeading(.5,16);
+                robot.straightByEncoder(1,-46.8,30);
+                robot.strafeTimed(-1,1);
+                robot.releasePixel(2,-1);
+                robot.straightByEncoder(.5,2.5,10);
+                robot.strafeTimed(-1,4);
                 break;
         }
         // drop pixel
