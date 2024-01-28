@@ -32,6 +32,9 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.tfod.TfodProcessor;
+
 /*
  * This OpMode illustrates using a camera to locate and drive towards a specific AprilTag.
  * The code assumes a Holonomic (Mecanum or X Drive) Robot.
@@ -80,44 +83,50 @@ public class autoRedFar2024 extends LinearOpMode {
 
     private static final boolean USE_WEBCAM = true;  // true for webcam, false for phone camera
 
+
     public void runOpMode() {
         robot.init();
+        robot.initTFOD();
 
         telemetry.addData("DS preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch Play to start OpMode");
         telemetry.update();
         waitForStart();
 
-
+        robot.straightByEncoder(.5,2,10);
+        robot.turnToHeading(.5,-16);
         DemoBotHardware.spike spike = robot.spikeSenseAuto();
-        // move forward
-        // turn 180
 
         spike = robot.spikeSenseAuto();
         switch (spike) {
             case LEFT:
-                robot.straightByEncoder(1, -23, 15);
-                robot.turnToHeading(.25, 45);
-                robot.releasePixel(3, -.7);
-                robot.straightByEncoder(1, -4, 10);
-                robot.strafeTimed(1, 3);
+                robot.turnToHeading(.5,16);
+                robot.straightByEncoder(1,-46.8,30);
+                robot.strafeTimed(-1,1);
+                robot.releasePixel(2,-1);
+                robot.straightByEncoder(.5,2.5,10);
+                robot.strafeTimed(-1,9.5);
                 break;
             case CENTER:
-                robot.straightByEncoder(1, -24.5, 20);
-                robot.releasePixel(3, -.7);
-                robot.straightByEncoder(1, -4, 10);
-                robot.strafeTimed(1, 3);
+                robot.turnToHeading(.5,16);
+                robot.straightByEncoder(1,-46.8,30);
+                robot.releasePixel(2,-1);
+                //robot.straightByEncoder(1,2.5,10);
+                robot.strafeTimed(-1,8.5);
                 break;
             case UNKNOWN:
                 robot.straightByEncoder(1, 10, 10);
                 robot.straightByEncoder(1, 3, 20);
                 break;
             case RIGHT:
-                robot.straightByEncoder(1, -23, 15);
-                robot.turnToHeading(.25, -45);
-                robot.releasePixel(3, -.7);
-                robot.straightByEncoder(1, -4, 10);
-                robot.strafeTimed(1, 3);
+                robot.turnToHeading(.5,16);
+                robot.straightByEncoder(1,-40,30);
+                robot.turnToHeading(.5,45);
+                robot.straightByEncoder(1,7.5,5);
+                robot.releasePixel(2,-1);
+                robot.turnToHeading(1,-45);
+                robot.straightByEncoder(1,-5.75,10);
+                robot.strafeTimed(-1,8.5);
                 break;
         }
     }

@@ -97,29 +97,33 @@ public class autoBLueClose2024 extends LinearOpMode {
         switch (spike) {
 
             case LEFT:
-                robot.straightByEncoder(1, -22.5, 20);
-                robot.turnToHeading(.25, 45);
-                robot.straightByEncoder(1, 4.3, 10);
-                robot.releasePixel(3, -.5);
-                robot.straightByEncoder(1, 3, 10);
-                robot.strafeTimed(1, 5);
+                robot.turnToHeading(.5,-16);
+                robot.straightByEncoder(1,-43,30);
+                robot.turnToHeading(.5,-42);
+                robot.straightByEncoder(1,6,5);
+                robot.releasePixel(2,-1);
+                robot.turnToHeading(1,42);
+                robot.straightByEncoder(1,-5.75,10);
+                robot.strafeTimed(1,4);
                 break;
             case CENTER:
-                robot.straightByEncoder(1, -24.5, 20);
-                robot.releasePixel(3, -.25);
-                robot.straightByEncoder(1, -2, 10);
-                robot.strafeTimed(1, 5);
+                robot.turnToHeading(.5,-16);
+                robot.straightByEncoder(1,-46.8,30);
+                robot.releasePixel(2,-1);
+                robot.straightByEncoder(1,2.5,10);
+                robot.strafeTimed(1,5);
                 break;
             case UNKNOWN:
                 robot.straightByEncoder(1, 10, 10);
                 robot.strafeTimed(1, 1);
                 break;
             case RIGHT:
-                robot.straightByEncoder(1, -22.5, 15);
-                robot.turnToHeading(.25, -45);
-                robot.releasePixel(3, -.25);
-                robot.straightByEncoder(1, 4.3, 10);
-                robot.strafeTimed(1, 5);
+                robot.turnToHeading(.5,-16);
+                robot.straightByEncoder(1,-46.8,30);
+                robot.strafeTimed(-1,1);
+                robot.releasePixel(2,-1);
+                robot.straightByEncoder(.5,2.5,10);
+                robot.strafeTimed(1,6);
                 break;
         }
         // drop pixel

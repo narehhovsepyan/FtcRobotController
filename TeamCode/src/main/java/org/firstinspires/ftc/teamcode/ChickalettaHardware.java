@@ -98,6 +98,9 @@ public class ChickalettaHardware {
     public static final int SHOULDER_BACKDROP = 300;
     public static final int SHOULDER_UP = 48;
 
+    private static final String CUSTOM_TFOD_MODEL_FILE = "/sdcard/model_20240127_162908.tflite";
+
+
     // Define Drive constants.  Make them public so they CAN be used by the calling OpMode
 
     // Define a constructor that allows the OpMode to pass a reference to itself.
@@ -186,10 +189,10 @@ public class ChickalettaHardware {
             setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
             // Determine new target position, and pass to motor controller
-            newLeftFrontTarget = leftFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
-            newLeftBackTarget = leftBackDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
-            newRightFrontTarget = rightFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
-            newRightBackTarget = rightFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+            newLeftFrontTarget = leftFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH *.5);
+            newLeftBackTarget = leftBackDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH *.5);
+            newRightFrontTarget = rightFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH *.5);
+            newRightBackTarget = rightFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH *.5);
             leftFrontDrive.setTargetPosition(newLeftFrontTarget);
             leftBackDrive.setTargetPosition(newLeftBackTarget);
             rightFrontDrive.setTargetPosition(newRightFrontTarget);
@@ -362,6 +365,7 @@ public class ChickalettaHardware {
     }
 
     public void turnToHeading(double maxTurnSpeed, double heading) {
+        resetHeading();
         getSteeringCorrection(heading, P_DRIVE_GAIN);
         while (myOpMode.opModeIsActive() && (Math.abs(headingError) > HEADING_THRESHOLD)) {
             // Determine required steering to keep on heading
@@ -460,6 +464,12 @@ public class ChickalettaHardware {
         stop();
     }
 
+    public void initTFOD() {
+        tfod = new TfodProcessor.Builder()
+                .setModelFileName("TFOD_MODEL_ASSET")
+                .build();
+
+    }
     public DemoBotHardware.spike spikeSenseAuto() {
         List<Recognition> currentRecognitions = tfod.getRecognitions();
         do {

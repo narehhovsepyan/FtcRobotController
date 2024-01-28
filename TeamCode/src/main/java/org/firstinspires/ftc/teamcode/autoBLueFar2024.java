@@ -88,29 +88,36 @@ public class autoBLueFar2024 extends LinearOpMode {
         telemetry.update();
         waitForStart();
 
-
+        robot.straightByEncoder(.5,-2,10);
+        robot.turnToHeading(.5,16);
         DemoBotHardware.spike spike = robot.spikeSenseAuto();
         spike = robot.spikeSenseAuto();
         switch (spike) {
             case LEFT:
-                robot.straightByEncoder(1, -23, 15);
-                robot.turnToHeading(.25, 45);
-                robot.releasePixel(3, -.7);
-                robot.straightByEncoder(1, 10, 10);
-                robot.strafeTimed(1, 3);
+                robot.turnToHeading(.5,-16);
+                robot.straightByEncoder(1,-46.8,30);
+                robot.strafeTimed(-1,1);
+                robot.releasePixel(2,-1);
+                robot.straightByEncoder(.5,2.5,10);
+                robot.strafeTimed(1,9.5);
                 break;
             case CENTER:
-                robot.straightByEncoder(1, -24.5, 20);
-                robot.releasePixel(3, -.7);
-                robot.straightByEncoder(1, 4, 10);
-                robot.strafeTimed(1, 3);
+                //done
+                robot.turnToHeading(.5,-16);
+                robot.straightByEncoder(1,-46.8,30);
+                robot.releasePixel(2,-1);
+                robot.straightByEncoder(1,2.5,10);
+                robot.strafeTimed(1,8.5);
                 break;
             case RIGHT:
-                robot.straightByEncoder(1, -23, 15);
-                robot.turnToHeading(.25, 45);
-                robot.releasePixel(3, -.7);
-                robot.straightByEncoder(1, 7, 10);
-                robot.strafeTimed(1, 3);
+                robot.turnToHeading(.5,-16);
+                robot.straightByEncoder(1,-43,30);
+                robot.turnToHeading(.5,-45);
+                robot.straightByEncoder(1,7.5,5);
+                robot.releasePixel(2,-1);
+                robot.turnToHeading(1,45);
+                robot.straightByEncoder(1,-5.75,10);
+                robot.strafeTimed(1,8.5);
                 break;
         }
         // drop pixel
