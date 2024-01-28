@@ -92,18 +92,10 @@ public class ChickalettaTeleop extends LinearOpMode {
 //modify shoulder stored and elbow min respective
             if (gamepad2.a) {
                 resetRuntime();
-                robot.setShoulder(ChickalettaHardware.SHOULDER_UP);
-                if (runtime.milliseconds() > 1000) {
-                    robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
-                }
-                if (runtime.milliseconds() > 200) {
-                    robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
-                }
-            }
-            if (gamepad2.b) {
-                resetRuntime();
                 robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
-                robot.setElbowPosition(ChickalettaHardware.ELBOW_MIN);
+                if (runtime.milliseconds() > 200) {
+                    robot.setHandPosition(ChickalettaHardware.HAND_PICKUP);
+                }
             }
 //modify shoulder backdrop and elbow max  (motor servo respective)
 
@@ -113,20 +105,11 @@ public class ChickalettaTeleop extends LinearOpMode {
                 robot.setClampOpen();
                 robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
                 if (runtime.milliseconds() > 1100) {
-                    robot.setElbowPosition(ChickalettaHardware.ELBOW_MAX);
+                    robot.setHandPosition(ChickalettaHardware.HAND_PLACE);
                 }
                 robot.makeShoulderFastAgain(.5);
             }
-            if (gamepad2.dpad_left) {
-                resetRuntime();
-                robot.setShoulder(ChickalettaHardware.SHOULDER_UP);
-                if (runtime.milliseconds() > 1000) {
-                    robot.setElbowPosition(ChickalettaHardware.ELBOW_PICKUP);
-                }
-                if (runtime.milliseconds() > 1000) {
-                    robot.setShoulder(ChickalettaHardware.SHOULDER_PICKUP2);
-                }
-            }
+
             if (gamepad2.x) {
                 resetRuntime();
                 robot.startPixelPickup();

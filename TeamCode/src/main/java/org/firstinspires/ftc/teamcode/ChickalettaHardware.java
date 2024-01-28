@@ -32,7 +32,7 @@ public class ChickalettaHardware {
     public static final double SPIKE_RIGHT_MAX = 600.;
 
 
-    public enum PixelPickupState {IDLE_STATE, ELBOW_MIN_STATE, SHOULDER_PICKUP_STATE, ELBOW_PICKUP_STATE, SHOULDER_UP_STATE}
+    public enum PixelPickupState {IDLE_STATE, HAND_MIN_STATE, SHOULDER_PICKUP_STATE, HAND_PICKUP_STATE, SHOULDER_UP_STATE}
 
     PixelPickupState pixelPickupState = PixelPickupState.IDLE_STATE;
     ElapsedTime pixelPickupTimer;
@@ -58,8 +58,9 @@ public class ChickalettaHardware {
 
 
     private Servo plane = null;
+    private Servo planeclamp = null;
     private Servo clamp = null;
-    private Servo elbow = null;
+    private Servo hand = null;
 
     private DcMotor shoulder = null;
 
@@ -84,19 +85,19 @@ public class ChickalettaHardware {
     static final double HEADING_THRESHOLD = 5.0;
 
     public static final int PLANE_LAUNCH = 0;
+    public static final int PLANE_CLAMP_LAUNCH = 0;
 
 
     //need to play with these
-    public static final double CLAMP_CLOSE = 0.0;
-    public static final double CLAMP_OPEN = 0.25;
-    public static final double ELBOW_PICKUP = 0.21;
-    public static final double ELBOW_MAX = 0.87;
-    public static final double ELBOW_MIN = 0.1;
+    public static final double CLAMP_CLOSE = 0.350000123456789;
+    public static final double CLAMP_OPEN = 0.0;
+    public static final double HAND_PICKUP = 0.63;
+    public static final double HAND_PLACE = 0;
     public static final int SHOULDER_STORED = 0;
-    public static final int SHOULDER_PICKUP1 = 19;
+    public static final int SHOULDER_PICKUP1 = 23;
     public static final int SHOULDER_PICKUP2 = 30;
-    public static final int SHOULDER_BACKDROP = 300;
-    public static final int SHOULDER_UP = 48;
+    public static final int SHOULDER_BACKDROP = -470;
+    public static final int SHOULDER_UP = 57; //48
 
     // Define Drive constants.  Make them public so they CAN be used by the calling OpMode
 
@@ -119,11 +120,12 @@ public class ChickalettaHardware {
         leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
-        shoulder = myOpMode.hardwareMap.get(DcMotor.class, "shoulder");
+        shoulder = myOpMode.hardwareMap. get(DcMotor.class, "shoulder");
         spinTake = myOpMode.hardwareMap.get(DcMotor.class, "spin_take");
         clamp = myOpMode.hardwareMap.get(Servo.class, "clamp_servo");
-        elbow = myOpMode.hardwareMap.get(Servo.class, "elbow_servo");
+        hand = myOpMode.hardwareMap.get(Servo.class, "hand_servo");
         plane = myOpMode.hardwareMap.get(Servo.class, "plane_servo");
+        planeclamp = myOpMode.hardwareMap.get(Servo.class, "planeclamp_servo");
 
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
@@ -389,15 +391,19 @@ public class ChickalettaHardware {
     }
 
     public void launchPlane() {
-        plane.setPosition(PLANE_LAUNCH);
+        runtime.reset();
+        planeclamp.setPosition(PLANE_CLAMP_LAUNCH);
+        if (runtime.now(TimeUnit.MILLISECONDS) > 3000)
+            plane.setPosition(PLANE_LAUNCH);
+        myOpMode.telemetry.addData("planeclamp,j6;,", "PLANE_CLAMP_LAUNCH");
         myOpMode.telemetry.addData("plane", "PLANE_LAUNCH");
-
+        runtime.reset();
     }
 
-    //modify servo position elbow
-    public void setElbowPosition(double servo_position_elbow) {
-        elbow.setPosition(servo_position_elbow);
-        myOpMode.telemetry.addData("elbow", "%4.2f", servo_position_elbow);
+    //modify servo position hand
+    public void setHandPosition(double servo_position_hand) {
+        hand.setPosition(servo_position_hand);
+        myOpMode.telemetry.addData("hand", "%4.2f", servo_position_hand);
     }
 
     //modify CLAMP_OPEN
@@ -413,10 +419,10 @@ public class ChickalettaHardware {
         myOpMode.telemetry.addData("chopstick", "left");
     }
 
-    //modify elbow min state
+    //modify hand min state
     public void startPixelPickup() {
         pixelPickupTimer.reset();
-        setElbowPosition(ELBOW_MIN);
+        setHandPosition(HAND_PICKUP);
         pixelPickupState = PixelPickupState.SHOULDER_UP_STATE;
     }
 
@@ -427,18 +433,18 @@ public class ChickalettaHardware {
                 runtime.reset();
                 if (runtime.now(TimeUnit.MILLISECONDS) > 1000) {
                     setShoulder(SHOULDER_UP);
-                    pixelPickupState = PixelPickupState.ELBOW_MIN_STATE;
+                    pixelPickupState = PixelPickupState.HAND_MIN_STATE;
                 }
-            case ELBOW_MIN_STATE:
+            case HAND_MIN_STATE:
                 runtime.reset();
                 if (runtime.now(TimeUnit.MILLISECONDS) > 1000) {
                     setShoulder(SHOULDER_PICKUP1);
                     pixelPickupState = PixelPickupState.SHOULDER_PICKUP_STATE;
                 }
             case SHOULDER_PICKUP_STATE:
-                pixelPickupState = PixelPickupState.ELBOW_PICKUP_STATE;
-                setElbowPosition(ELBOW_PICKUP);
-            case ELBOW_PICKUP_STATE:
+                pixelPickupState = PixelPickupState.HAND_PICKUP_STATE;
+                setHandPosition(HAND_PICKUP);
+            case HAND_PICKUP_STATE:
                 if (runtime.now(TimeUnit.MILLISECONDS) > 500) {
                     pixelPickupState = PixelPickupState.IDLE_STATE;
                 }
