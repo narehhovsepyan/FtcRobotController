@@ -82,6 +82,7 @@ public class autoBLueClose2024 extends LinearOpMode {
 
     public void runOpMode() {
         robot.init();
+        robot.initTFOD("/sdcard/tmp/model_20240204_152927.tflite");
 
         telemetry.addData("DS preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch Play to start OpMode");
@@ -90,6 +91,8 @@ public class autoBLueClose2024 extends LinearOpMode {
 
 
         DemoBotHardware.spike spike = robot.spikeSenseAuto();
+        robot.straightByEncoder(.5,-2,10);
+        robot.turnToHeading(.5,14);
         // move forward
         // turn 180
         resetRuntime();
@@ -97,7 +100,7 @@ public class autoBLueClose2024 extends LinearOpMode {
         switch (spike) {
 
             case LEFT:
-                robot.turnToHeading(.5,-16);
+                robot.turnToHeading(.5,-14);
                 robot.straightByEncoder(1,-43,30);
                 robot.turnToHeading(.5,-42);
                 robot.straightByEncoder(1,6,5);

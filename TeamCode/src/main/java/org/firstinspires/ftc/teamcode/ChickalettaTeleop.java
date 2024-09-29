@@ -31,6 +31,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import java.util.concurrent.TimeUnit;
@@ -90,6 +91,7 @@ public class ChickalettaTeleop extends LinearOpMode {
             robot.spinTake(intake_position);
 
 //modify shoulder stored and elbow min respective
+          /**
             if (gamepad2.a) {
                 resetRuntime();
                 robot.setShoulder(ChickalettaHardware.SHOULDER_STORED);
@@ -97,16 +99,39 @@ public class ChickalettaTeleop extends LinearOpMode {
                     robot.setHandPosition(ChickalettaHardware.HAND_PICKUP);
                 }
             }
-//modify shoulder backdrop and elbow max  (motor servo respective)
 
+           **/
+
+          if (gamepad2.a) {
+              robot.shoulderWithoutEncoder();
+              resetRuntime();
+              boolean isLimitSwitchPressed = robot.limitSwitch.getState();
+              while (isLimitSwitchPressed) {
+                  isLimitSwitchPressed = robot.limitSwitch.getState();
+                  robot.runShoulder(0.5);
+              }
+              robot.runShoulder(0.0);
+              robot.shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+              if (runtime.milliseconds() > 200) {
+                  robot.setHandPosition(ChickalettaHardware.HAND_PICKUP);
+              }
+              robot.shoulderWithEncoder();
+          }
+//modify shoulder backdrop and elbow max  (motor servo respective)
             if (gamepad2.y) {
                 resetRuntime();
-                robot.makeShoulderSlow(0.5);
+                //robot.makeShoulderSlow(0.2);
                 robot.setClampOpen();
-                robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
-                if (runtime.milliseconds() > 1100) {
-                    robot.setHandPosition(ChickalettaHardware.HAND_PLACE);
+
+                while (runtime.milliseconds() < 3000){
+
                 }
+                robot.setShoulder(ChickalettaHardware.SHOULDER_BACKDROP);
+
+                while (runtime.milliseconds() < 3000) {
+
+                }
+                robot.setHandPosition(ChickalettaHardware.HAND_PLACE);
                 robot.makeShoulderFastAgain(.5);
             }
 

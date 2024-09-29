@@ -15,6 +15,7 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
 import org.firstinspires.ftc.vision.VisionPortal;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
 import org.firstinspires.ftc.vision.tfod.TfodProcessor;
 
 import java.util.List;
@@ -60,9 +61,12 @@ public class ChickalettaHardware {
     private Servo plane = null;
     private Servo planeclamp = null;
     private Servo clamp = null;
+    public DigitalChannel limitSwitch;
+
     private Servo hand = null;
 
-    private DcMotor shoulder = null;
+
+    public DcMotor shoulder = null;
 
     private IMU imu = null;
     private double robotHeading = 0;
@@ -85,18 +89,19 @@ public class ChickalettaHardware {
     static final double HEADING_THRESHOLD = 5.0;
 
     public static final int PLANE_LAUNCH = 0;
-    public static final int PLANE_CLAMP_LAUNCH = 0;
+    public static final int PLANE_CLAMP_LAUNCH = 100;
 
 
     //need to play with these
-    public static final double CLAMP_CLOSE = 0.350000123456789;
+    public static final double CLAMP_CLOSE = 0.25;
     public static final double CLAMP_OPEN = 0.0;
-    public static final double HAND_PICKUP = 0.63;
+    public static final double HAND_PICKUP = 0.7;
+    public static final double HAND_FIX = 0.5;
     public static final double HAND_PLACE = 0;
     public static final int SHOULDER_STORED = 0;
     public static final int SHOULDER_PICKUP1 = 23;
     public static final int SHOULDER_PICKUP2 = 30;
-    public static final int SHOULDER_BACKDROP = -470;
+    public static final int SHOULDER_BACKDROP = -500;
     public static final int SHOULDER_UP = 57; //48
 
     private static final String CUSTOM_TFOD_MODEL_FILE = "/sdcard/model_20240127_162908.tflite";
@@ -129,18 +134,20 @@ public class ChickalettaHardware {
         hand = myOpMode.hardwareMap.get(Servo.class, "hand_servo");
         plane = myOpMode.hardwareMap.get(Servo.class, "plane_servo");
         planeclamp = myOpMode.hardwareMap.get(Servo.class, "planeclamp_servo");
-
+        limitSwitch = myOpMode.hardwareMap.get(DigitalChannel.class, "limitSwitch");
+        limitSwitch.setMode(DigitalChannel.Mode.INPUT);
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
-        leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
-        leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        leftFrontDrive.setDirection(DcMotor.Direction.FORWARD);
+        leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
+        rightBackDrive.setDirection(DcMotor.Direction.REVERSE);
         shoulder.setDirection(DcMotor.Direction.FORWARD);
 
         shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shoulder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         shoulder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         initTfod();
@@ -313,7 +320,16 @@ public class ChickalettaHardware {
         myOpMode.telemetry.addData("shoulder", "%d", shoulder_position);
     }
 
+    public void runShoulder(double shoulder_speed){
+        shoulder.setPower(shoulder_speed);
+    }
+    public void shoulderWithoutEncoder(){
+        shoulder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+    }
 
+    public void shoulderWithEncoder(){
+        shoulder.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
     public void makeShoulderSlow(double shoulder_speed_slow) {
         shoulder.setPower(shoulder_speed_slow);
     }
@@ -395,10 +411,13 @@ public class ChickalettaHardware {
     }
 
     public void launchPlane() {
-        runtime.reset();
+
         planeclamp.setPosition(PLANE_CLAMP_LAUNCH);
-        if (runtime.now(TimeUnit.MILLISECONDS) > 3000)
-            plane.setPosition(PLANE_LAUNCH);
+        runtime.reset();
+        while (runtime.now(TimeUnit.MILLISECONDS) < 4000)  {
+
+        }
+        plane.setPosition(PLANE_LAUNCH);
         myOpMode.telemetry.addData("planeclamp,j6;,", "PLANE_CLAMP_LAUNCH");
         myOpMode.telemetry.addData("plane", "PLANE_LAUNCH");
         runtime.reset();
@@ -427,9 +446,7 @@ public class ChickalettaHardware {
     public void startPixelPickup() {
         pixelPickupTimer.reset();
         setHandPosition(HAND_PICKUP);
-        pixelPickupState = PixelPickupState.SHOULDER_UP_STATE;
-    }
-
+        pixelPickupState = PixelPickupState.SHOULDER_UP_STATE;}
     public void advancePixelPickup() {
         switch (pixelPickupState) {
             case IDLE_STATE:
@@ -437,21 +454,18 @@ public class ChickalettaHardware {
                 runtime.reset();
                 if (runtime.now(TimeUnit.MILLISECONDS) > 1000) {
                     setShoulder(SHOULDER_UP);
-                    pixelPickupState = PixelPickupState.HAND_MIN_STATE;
-                }
+                    pixelPickupState = PixelPickupState.HAND_MIN_STATE;}
             case HAND_MIN_STATE:
                 runtime.reset();
                 if (runtime.now(TimeUnit.MILLISECONDS) > 1000) {
                     setShoulder(SHOULDER_PICKUP1);
-                    pixelPickupState = PixelPickupState.SHOULDER_PICKUP_STATE;
-                }
+                    pixelPickupState = PixelPickupState.SHOULDER_PICKUP_STATE;}
             case SHOULDER_PICKUP_STATE:
                 pixelPickupState = PixelPickupState.HAND_PICKUP_STATE;
                 setHandPosition(HAND_PICKUP);
             case HAND_PICKUP_STATE:
                 if (runtime.now(TimeUnit.MILLISECONDS) > 500) {
-                    pixelPickupState = PixelPickupState.IDLE_STATE;
-                }
+                    pixelPickupState = PixelPickupState.IDLE_STATE;}
 
         }
     }
@@ -470,9 +484,9 @@ public class ChickalettaHardware {
         stop();
     }
 
-    public void initTFOD() {
+    public void initTFOD(String file_name) {
         tfod = new TfodProcessor.Builder()
-                .setModelFileName("TFOD_MODEL_ASSET")
+                .setModelFileName(file_name)
                 .build();
 
     }

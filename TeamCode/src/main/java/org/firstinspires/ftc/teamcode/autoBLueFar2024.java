@@ -82,19 +82,19 @@ public class autoBLueFar2024 extends LinearOpMode {
 
     public void runOpMode() {
         robot.init();
-
+        robot.initTFOD("/sdcard/tmp/model_20240204_152927.tflite");
         telemetry.addData("DS preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch Play to start OpMode");
         telemetry.update();
         waitForStart();
 
         robot.straightByEncoder(.5,-2,10);
-        robot.turnToHeading(.5,16);
+        robot.turnToHeading(.5,14);
         DemoBotHardware.spike spike = robot.spikeSenseAuto();
         spike = robot.spikeSenseAuto();
         switch (spike) {
             case LEFT:
-                robot.turnToHeading(.5,-16);
+                robot.turnToHeading(.5,-14);
                 robot.straightByEncoder(1,-46.8,30);
                 robot.strafeTimed(-1,1);
                 robot.releasePixel(2,-1);
@@ -102,7 +102,6 @@ public class autoBLueFar2024 extends LinearOpMode {
                 robot.strafeTimed(1,9.5);
                 break;
             case CENTER:
-                //done
                 robot.turnToHeading(.5,-16);
                 robot.straightByEncoder(1,-46.8,30);
                 robot.releasePixel(2,-1);
@@ -120,20 +119,6 @@ public class autoBLueFar2024 extends LinearOpMode {
                 robot.strafeTimed(1,8.5);
                 break;
         }
-        // drop pixel
-        //turn to one tape
-
-        //robot.turnToHeading(1,45);
-        //sense if pixel
-
-        //if pixel place
-        //turn other tape
-        // robot.turnToHeading(1,45);
-        //if pixel place
-        //turn to tape and place
-
-        // robot.turnToHeading(1,45);
-
 
     }
 }

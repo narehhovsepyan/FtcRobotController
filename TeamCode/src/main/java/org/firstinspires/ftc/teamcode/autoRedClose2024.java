@@ -82,23 +82,22 @@ public class autoRedClose2024 extends LinearOpMode {
 
     public void runOpMode() {
         robot.init();
-        robot.initTFOD();
+        robot.initTFOD("/sdcard/model_20240127_162908.tflite");
         telemetry.addData("DS preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch Play to start OpMode");
         telemetry.update();
         waitForStart();
 
         robot.straightByEncoder(.5,-2,10);
-        robot.turnToHeading(.5,-16);
+        robot.turnToHeading(.5,-12);
         DemoBotHardware.spike spike = robot.spikeSenseAuto();
-        // move forward
-        // turn 180
+
 
         spike = robot.spikeSenseAuto();
         switch (spike) {
 
             case LEFT:
-                robot.turnToHeading(.5,16);
+                robot.turnToHeading(.5,12);
                 robot.straightByEncoder(1,-40,30);
                 robot.turnToHeading(.5,-45);
                 robot.straightByEncoder(1,7.5,5);
