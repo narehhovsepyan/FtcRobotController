@@ -65,7 +65,7 @@ public class teleop2025 extends LinearOpMode {
                 robot.resetYaw();
             }
 
-            robot.getColor();
+//            robot.getColor();
 
             //SlowScales
             double gp1LY = gamepad1.left_stick_y;
@@ -95,6 +95,12 @@ public class teleop2025 extends LinearOpMode {
                 robot.moveSlide(-1);
             }
         }
+
+
+
+
+
+
     }
 
 

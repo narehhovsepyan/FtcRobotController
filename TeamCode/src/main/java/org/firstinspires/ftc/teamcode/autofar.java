@@ -3,9 +3,9 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-@Autonomous(name = "autoclose")
+@Autonomous(name = "autofar")
 //@Disabled
-public class autoclose extends LinearOpMode {
+public class autofar extends LinearOpMode {
 
     Hardware2025 robot = new Hardware2025(this);
 
@@ -15,17 +15,16 @@ public class autoclose extends LinearOpMode {
 
         waitForStart();
 
-        robot.driveDiagonalForTime(.4, .5, 1.2);
+        robot.driveDiagonalForTime(-.4, .5, 1.2);
 
-        robot.moveSlideTimed(1, 1.5); //move slide up
-        //robot.openClaw();
-        robot.strafeTimed(-.1, .1);
+        robot.moveSlideTimed(1, 1.5); //move slide up//robot.openClaw();
+        robot.strafeTimed(-.5, .5);
         robot.moveSlideTimed(-1, 1); //move slide back down
         //robot.closeClaw();
-        robot.straightTimed(-.5, 2);
-        robot.strafeTimed(.5,1);
-        robot.straightTimed(-.5, .5);
-        robot.strafeTimed(-.5, 3);
+        robot.straightTimed(-.5, 4.5);
+        robot.strafeTimed(.5,1.5);
+        robot.straightTimed(-.5, 1.5);
+        robot.strafeTimed(-.5, 4.1);
 
+        }
     }
-}
