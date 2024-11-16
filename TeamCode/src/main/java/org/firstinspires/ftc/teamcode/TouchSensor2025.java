@@ -49,7 +49,7 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list.
  */
 @TeleOp(name = "Sensor: touch sensor claw", group = "Sensor")
-//@Disabled
+@Disabled
 public class TouchSensor2025 extends LinearOpMode {
     TouchSensor touchSensor;  // Touch sensor Object
     Servo clawServo;
@@ -76,8 +76,6 @@ public class TouchSensor2025 extends LinearOpMode {
                 clawServo.setPosition(OPEN_SERVO_CLAW);
                 telemetry.addData("GamepadRBumper", "Is Pressed");
 
-
-
             } else {
                 telemetry.addData("GamepadRBumper", "Is Not Pressed");
                 if (touchSensor.isPressed()) {
@@ -88,9 +86,7 @@ public class TouchSensor2025 extends LinearOpMode {
                     clawServo.setPosition(OPEN_SERVO_CLAW);
                     telemetry.addData("Touch Sensor", "Is Not Pressed");
                 }
-
             }
-
             telemetry.update();
         }
     }

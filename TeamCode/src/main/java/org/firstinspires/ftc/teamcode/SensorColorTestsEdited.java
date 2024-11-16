@@ -52,8 +52,6 @@ public class SensorColorTestsEdited extends LinearOpMode {
 
   View relativeLayout;
 
-
-
   @Override public void runOpMode() {
 
 

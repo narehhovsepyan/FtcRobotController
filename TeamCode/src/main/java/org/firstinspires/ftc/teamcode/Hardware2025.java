@@ -2,13 +2,9 @@ package org.firstinspires.ftc.teamcode;
 
 // import com.qualcomm.hardware.motors.RevRoboticsCoreHexMotor;
 
-import android.app.Activity;
 import android.graphics.Color;
-import android.view.View;
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -21,7 +17,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 //CODE NOTES:
 //CLAW SERVO IS SERVO PORT 1
@@ -31,15 +26,9 @@ public class Hardware2025 {
     /* Declare OpMode members. */
     private LinearOpMode myOpMode = null;   // gain access to methods in the calling OpMode.
     Servo clawServo;
-
-    public enum spike {LEFT, CENTER, RIGHT}
-
-    public enum sampleColor {RED, YELLOW, BLUE, NONE}
-
-    public static final double SPIKE_CENTER_MIN = 100.;
-    public static final double SPIKE_CENTER_MAX = 400.;
-    public static final double SPIKE_RIGHT_MIN = 410;
-    public static final double SPIKE_RIGHT_MAX = 600.;
+    TouchSensor touchSensor;  // Touch sensor Object
+    public static final double OPEN_SERVO_CLAW = 0.8;
+    public static final double CLOSE_SERVO_CLAW = 0.46;
 
 
     // Define Motor and Servo objects  (Make them private so they can't be accessed externally)
@@ -50,36 +39,43 @@ public class Hardware2025 {
     private DcMotor rightBackDrive = null;
     private DcMotor slide = null;
 
-
+    // Define IMU object and headings (Make it private so it can't be accessed externally)
     private IMU imu = null;
     private double robotHeading = 0;
     private double headingOffset = 0;
     private double headingError = 0;
     private double targetHeading = 0;
 
+    // color sensing
+    public enum sampleColor {RED, YELLOW, BLUE, NONE} //color sensing enum
     private NormalizedColorSensor colorSensor;
     private float colorSensorGain = 20;
-    private TouchSensor touchSensor;
+   // private TouchSensor touchSensor;
+    public TouchSensor magneticSensorLow;  // Touch sensor Object
+    public TouchSensor magneticSensorWall;  // Touch sensor Object
+    public TouchSensor magneticSensorHigh;  // Touch sensor Object
+    public TouchSensor magneticSensorStart;  // Touch sensor Object
+    public enum SlidePosition { START, WALL, LOW, HIGH, NONE};
+    public SlidePosition slideCurrentPosition = SlidePosition.NONE;
 
+    public void setSlideTargetPosition(SlidePosition slideTargetPosition) {
+        this.slideTargetPosition = slideTargetPosition;
+    }
 
-    // Servo values for chopstick grabber
+    public SlidePosition slideTargetPosition = SlidePosition.NONE;
 
+    //Drive constants
     static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
     static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
     static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
     static final double COUNTS_PER_INCH = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
             (WHEEL_DIAMETER_INCHES * Math.PI);
-    static final double DRIVE_SPEED = 0.6;
-    static final double TURN_SPEED = 1.0;
     private double turnSpeed = 0;
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
-    static final double OPEN_SERVO_CLAW = 0.8;
-    static final double CLOSE_SERVO_CLAW = 0.46;
 
 
-    // Define Drive constants.  Make them public so they CAN be used by the calling OpMode
 
     // Define a constructor that allows the OpMode to pass a reference to itself.
     public Hardware2025(LinearOpMode opmode) {
@@ -101,12 +97,19 @@ public class Hardware2025 {
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
         slide = myOpMode.hardwareMap.get(DcMotor.class, "slide");
-//        colorSensor = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color");
+        colorSensor = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color");
+        touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
+        clawServo = myOpMode.hardwareMap.get(Servo.class, "servo_claw");
         if (colorSensor instanceof SwitchableLight) {
             ((SwitchableLight) colorSensor).enableLight(true);
         }
-//        touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
-
+        touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
+        magneticSensorWall = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_wall");
+        magneticSensorLow = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_low");
+        magneticSensorHigh = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_high");
+        magneticSensorStart = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_start");
+        touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
+        clawServo = myOpMode.hardwareMap.get(Servo.class, "claw_servo");
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
@@ -131,12 +134,9 @@ public class Hardware2025 {
         myOpMode.telemetry.update();
     }
 
-    /**
-     * Initialize the TensorFlow Object Detection processor.
-     */
-
-
     // end method initTfod()
+
+    //Goes straight by encoder (takes distance)
     public void straightByEncoder(double speed, double distance, double timeout) {
         int newLeftFrontTarget;
         int newLeftBackTarget;
@@ -184,6 +184,7 @@ public class Hardware2025 {
         }
     }
 
+    //Drives for a set amount of time (takes time)
     public void driveTimed(double axial, double lateral, double yaw, double time) {
         setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
         driveRobot(axial, lateral, yaw);
@@ -195,10 +196,12 @@ public class Hardware2025 {
         stop();
     }
 
+    //strafe
     public void strafe(double strafe_power) {
         driveRobot(0.0, strafe_power, 0.0);
     }
 
+    //strafe for a set amount of time (takes time)
     public void strafeTimed(double lateral, double time) {
         setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
         driveRobot(0, lateral, 0);
@@ -210,9 +213,9 @@ public class Hardware2025 {
         stop();
     }
 
+    //drives robot
     public void driveRobot(double axial, double lateral, double yaw) {
         double max;
-
 
         // Combine the joystick requests for each axis-motion to determine each wheel's power.
         // Set up a variable for each drive wheel to save the power level for telemetry.
@@ -242,6 +245,7 @@ public class Hardware2025 {
         myOpMode.telemetry.addData("Back left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
     }
 
+    //field centric
     public void driveRobotFC(double axial, double lateral, double yaw) {
         double y = axial;
         double x = lateral;
@@ -358,22 +362,238 @@ public class Hardware2025 {
         NormalizedRGBA colors = colorSensor.getNormalizedColors();
         float[] hsvValues = new float[3];
         Color.colorToHSV(colors.toColor(), hsvValues);
-        if (hsvValues[0] > 21 && hsvValues[0] < 28) {
-            //telemetry.addData("Red", "%.3f", hsvValues[0]);
+        if (hsvValues[0] > 1 && hsvValues[0] <  75) {
+            myOpMode.telemetry.addData("Red", "%.3f", hsvValues[0]);
             return sampleColor.RED;
-        } else if (hsvValues[0] > 79 && hsvValues[0] < 86) {
-           // telemetry.addData("Yellow", "%.3f", hsvValues[0]);
+        } else if (hsvValues[0] > 75 && hsvValues[0] < 130) {
+            myOpMode.telemetry.addData("Yellow", "%.3f", hsvValues[0]);
             return sampleColor.YELLOW;
-        } else if (hsvValues[0] > 215 && hsvValues[0] < 225) {
-           // telemetry.addData("Blue", "%.3f", hsvValues[0]);
+        } else if (hsvValues[0] > 150 && hsvValues[0] < 280) {
+           myOpMode.telemetry.addData("Blue", "%.3f", hsvValues[0]);
             return sampleColor.BLUE;
-        }
 
-       // telemetry.addData("no color found", 0);
+        }
+        myOpMode.telemetry.addData("no color found", 0);
         return sampleColor.NONE;
+
+        //myOpMode.telemetry.update();
+
 
 
     }
+
+    public SlidePosition getSlideCurrent(){
+
+        if (magneticSensorStart.isPressed()) {
+            myOpMode.telemetry.addData("LinearSlide", "Is at start");
+            return SlidePosition.START;
+        }
+
+
+
+        if (magneticSensorWall.isPressed()) {
+            myOpMode.telemetry.addData("LinearSlide", "Is at wall");
+            return SlidePosition.WALL;
+        }
+
+
+
+        if (magneticSensorLow.isPressed()) {
+            myOpMode.telemetry.addData("LinearSlide", "Is at low");
+            return SlidePosition.LOW;
+        }
+
+
+
+        if (magneticSensorHigh.isPressed()) {
+            myOpMode.telemetry.addData("LinearSlide", "Is at high");
+            return SlidePosition.HIGH;
+        }
+
+
+        return null;
+    }
+
+    public double getSlidePower(){
+        return slide.getPower();
+    }
+
+
+
+    public void runSlide() {
+
+        if (slideTargetPosition == SlidePosition.START) {
+
+            double power = 0.0;
+
+            switch (getSlideCurrent()) {
+                case HIGH:
+                case LOW:
+                case WALL:
+
+                    power = -0.5;
+                    break;
+
+                case NONE:
+                    break;
+            }
+            moveSlide(power);
+
+            if (getSlidePower() > 0.0) {
+
+                switch (slideTargetPosition) {
+                    case START:
+                        if (magneticSensorStart.isPressed()) {
+                            moveSlide(0.0);
+                            slideCurrentPosition = Hardware2025.SlidePosition.START;
+                        }
+
+                }
+                if (getSlidePower() < 0.0) {
+
+                    switch (slideTargetPosition) {
+                        case START:
+                            if (magneticSensorStart.isPressed()) {
+                                moveSlide(0.0);
+                                slideCurrentPosition = Hardware2025.SlidePosition.START;
+
+                            }
+
+                    }
+
+                }
+            }
+        }
+        if (slideTargetPosition == SlidePosition.WALL) {
+            //go to Wall position
+            double power = 0.0;
+            slideTargetPosition = Hardware2025.SlidePosition.WALL;
+            switch (getSlideCurrent()) {
+                case HIGH:
+                case LOW:
+                    power = -0.5;
+                    break;
+
+                case START:
+                    power = 0.5;
+                    break;
+                case NONE:
+                    break;
+            }
+            moveSlide(power);
+
+            if (getSlidePower() > 0.0) {
+                switch (slideTargetPosition) {
+                    case WALL:
+                        if (magneticSensorWall.isPressed()) {
+                            moveSlide(0.0);
+                        }
+
+                }
+                if (getSlidePower() < 0.0) {
+
+                    switch (slideTargetPosition) {
+                        case WALL:
+                            if (magneticSensorWall.isPressed()) {
+                                moveSlide(0.0);
+
+                            }
+
+                    }
+
+                }
+            }
+        }
+
+        if (slideTargetPosition == SlidePosition.LOW) {
+            //go to Low Bar position
+            double power = 0.0;
+            slideTargetPosition = Hardware2025.SlidePosition.LOW;
+            switch (getSlideCurrent()) {
+                case HIGH:
+                    power = -0.5;
+                    break;
+
+                case START:
+                case WALL:
+                    power = 0.5;
+                    break;
+                case NONE:
+                    break;
+            }
+            moveSlide(power);
+
+            if (getSlidePower() > 0.0) {
+                switch (slideTargetPosition) {
+                    case LOW:
+                        if (magneticSensorLow.isPressed()) {
+                            moveSlide(0.0);
+                        }
+
+                }
+                if (getSlidePower() < 0.0) {
+
+                    switch (slideTargetPosition) {
+                        case LOW:
+                            if (magneticSensorLow.isPressed()) {
+                                moveSlide(0.0);
+
+                            }
+
+                    }
+
+                }
+            }
+        }
+
+        if (slideTargetPosition == SlidePosition.HIGH) {
+            //go to Low Bar position
+            double power = 0.0;
+            slideTargetPosition = Hardware2025.SlidePosition.HIGH;
+            switch (getSlideCurrent()) {
+                case LOW:
+                case START:
+                case WALL:
+                    power = 0.5;
+                    break;
+                case NONE:
+                    break;
+            }
+            moveSlide(power);
+
+            if (getSlidePower() > 0.0) {
+                switch (slideTargetPosition) {
+                    case HIGH:
+                        if (magneticSensorHigh.isPressed()) {
+                            moveSlide(0.0);
+                        }
+
+                }
+                if (getSlidePower() < 0.0) {
+
+                    switch (slideTargetPosition) {
+                        case HIGH:
+                            if (magneticSensorHigh.isPressed()) {
+                                moveSlide(0.0);
+
+                            }
+
+                    }
+
+                }
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
 }
 
 
