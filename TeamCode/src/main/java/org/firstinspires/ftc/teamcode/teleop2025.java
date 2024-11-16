@@ -54,6 +54,16 @@ public class teleop2025 extends LinearOpMode {
     public void runOpMode() {
         robot.init();
 
+        //robot.startSlide();
+
+        robot.moveSlide(0.3);
+        if (robot.magneticSensorWall.isPressed()){
+            robot.moveSlide(0.0);
+        }else {
+            robot.moveSlide(0.3);
+        }
+
+
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
@@ -93,9 +103,28 @@ public class teleop2025 extends LinearOpMode {
                 gp1LX *= slowscale;
                 gp1RX *= slowscale;
             }
-            robot.driveRobotFC(-gp1LY, gp1LX, gp1RX); //field centric
+            robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
-            if (gamepad2.a){
+            //go to the pickup height
+            if (gamepad2.a) {
+                robot.slideByEncoder(.5,5,10);
+            }
+
+            //go to bar 1 height
+            if (gamepad2.b) {
+                robot.slideByEncoder(.5,14,10);
+                robot.straightByEncoder(.3,1,10);
+                robot.slideByEncoder(.5,8.5,10);
+            }
+
+            if (gamepad2.x) {
+                robot.slideByEncoder(.5,27,15);
+                robot.straightByEncoder(.3,1,5);
+                robot.slideByEncoder(.5,21.5,10);
+            }
+
+
+            /** ?if (gamepad2.a){
                 robot.setSlideTargetPosition(Hardware2025.SlidePosition.START);
             }
             if (gamepad2.b){
@@ -108,10 +137,7 @@ public class teleop2025 extends LinearOpMode {
                 robot.setSlideTargetPosition(Hardware2025.SlidePosition.HIGH);
             }
 
-            robot.runSlide();
-
-            //slide up and down
-            if (gamepad2.dpad_up) {
+                        if (gamepad2.dpad_up) {
                 robot.moveSlide(1);
             }
 
@@ -119,21 +145,18 @@ public class teleop2025 extends LinearOpMode {
                 robot.moveSlide(-1);
             }
 
-            //open and close claw via touch sensor
-            if (gamepad2.right_bumper) {
-                robot.openClaw();
-                telemetry.addData("GamepadRBumper", "Is Pressed");
+             private void driveRobotFC(double v, double gp1LX, double gp1RX)}
+             private void resetYaw(){}
 
-            } else {
-                telemetry.addData("GamepadRBumper", "Is Not Pressed");
-                if (robot.touchSensor.isPressed()) {
-                    robot.closeClaw();
-                    telemetry.addData("Touch Sensor", "Is Pressed");
-                } else {
-                    robot.openClaw();
-                    telemetry.addData("Touch Sensor", "Is Not Pressed");
-                }
-            }
+             if (gamepad2.dpad_up) {
+             robot.moveSlide(1);
+             }
+
+             if (gamepad2.dpad_down) {
+             robot.moveSlide(-1);
+             }
+        **/
+
         }
     }
 }
