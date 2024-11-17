@@ -56,14 +56,6 @@ public class teleop2025 extends LinearOpMode {
 
         //robot.startSlide();
 
-        robot.moveSlide(0.3);
-        if (robot.magneticSensorWall.isPressed()){
-            robot.moveSlide(0.0);
-        }else {
-            robot.moveSlide(0.3);
-        }
-
-
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
@@ -107,20 +99,41 @@ public class teleop2025 extends LinearOpMode {
 
             //go to the pickup height
             if (gamepad2.a) {
-                robot.slideByEncoder(.5,5,10);
+                robot.slideByEncoder(.5,0,10);
             }
 
-            //go to bar 1 height
+            //go to bar 1 height- moved 2.5
             if (gamepad2.b) {
-                robot.slideByEncoder(.5,14,10);
+                robot.slideByEncoder(.5,1,10);
                 robot.straightByEncoder(.3,1,10);
-                robot.slideByEncoder(.5,8.5,10);
+                robot.slideByEncoder(.5,6.5,10);
             }
 
             if (gamepad2.x) {
-                robot.slideByEncoder(.5,27,15);
+                robot.slideByEncoder(.5,18,15);
                 robot.straightByEncoder(.3,1,5);
-                robot.slideByEncoder(.5,21.5,10);
+                robot.slideByEncoder(.5,16,10);
+            }
+
+            //open and close claw via touch sensor
+            if (gamepad2.right_bumper) {
+                robot.closeClaw();
+                telemetry.addData("GamepadRBumper", "Is Pressed");
+
+            }
+
+            if (gamepad2.left_bumper) {
+                robot.openClaw();
+                telemetry.addData("GamepaLRBumper", "Is Pressed");
+            }
+
+            //move the arm
+            if (gamepad2.dpad_right) {
+                robot.moveArm(.5);
+            }
+
+            if (gamepad2.dpad_left) {
+                robot.moveArm(-.5);
             }
 
 

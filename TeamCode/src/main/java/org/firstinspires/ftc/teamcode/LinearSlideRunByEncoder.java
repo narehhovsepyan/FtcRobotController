@@ -25,7 +25,8 @@
  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+ *//*
+
 
 package org.firstinspires.ftc.teamcode;
 
@@ -35,6 +36,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+*/
 /*
  * This OpMode illustrates the concept of driving a path based on encoder counts.
  * The code is structured as a LinearOpMode
@@ -59,13 +61,17 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  *
  * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
- */
+ *//*
+
 
 @Autonomous(name="Robot: Auto Drive By Encoder", group="Robot")
 @Disabled
+@Override
 public class LinearSlideRunByEncoder extends LinearOpMode {
 
-    /* Declare OpMode members. */
+    */
+/* Declare OpMode members. *//*
+
     private DcMotor         leftDrive   = null;
     private DcMotor slide = null;
 
@@ -79,13 +85,13 @@ public class LinearSlideRunByEncoder extends LinearOpMode {
     // For gearing UP, use a gear ratio less than 1.0. Note this will affect the direction of wheel rotation.
     static final double     COUNTS_PER_MOTOR_REV    = 1440 ;    // eg: TETRIX Motor Encoder
     static final double     DRIVE_GEAR_REDUCTION    = 1.0 ;     // No External Gearing.
-    static final double     GEAR_DIAMETER_INCHES   =  ;     // For figuring circumference
+    static final double     GEAR_DIAMETER_INCHES    =  1.9 ;     // For figuring circumference
     static final double     COUNTS_PER_INCH         = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
                                                       (GEAR_DIAMETER_INCHES * 3.1415);
     static final double     SLIDE_SPEED             = 0.6;
 
 
-    @Override
+
     public void runOpMode() {
         waitForStart();
         // Initialize the drive system variables.
@@ -103,20 +109,21 @@ public class LinearSlideRunByEncoder extends LinearOpMode {
         // Wait for the game to start (driver presses START)
 
 
-        encoderSlide(SLIDE_SPEED, slideInches 48, 5.0);
+        encoderSlide(SLIDE_SPEED, slideInches) 48, 5.0);
 
 
-    /*
+    */
+/*
      *  Method to perform a relative move, based on encoder counts.
      *  Encoders are not reset as the move is based on the current position.
      *  Move will stop if any of three conditions occur:
      *  1) Move gets to the desired position
      *  2) Move runs out of time
      *  3) Driver stops the OpMode running.
-     */
-    public void encoderSlide(double speed,
-                            double slideInches,
-                            double timeoutS) {
+     *//*
+
+
+        public void encoderSlide(double speed, double slideInches, double timeoutS) {
 
         int newSlideTarget;
 
@@ -142,9 +149,11 @@ public class LinearSlideRunByEncoder extends LinearOpMode {
             // always end the motion as soon as possible.
             // However, if you require that BOTH motors have finished their moves before the robot continues
             // onto the next step, use (isBusy() || isBusy()) in the loop test.
-            while (opModeIsActive() &&
-                   (runtime.seconds() < timeoutS) &&
-                   ( slide.isBusy()){
+            while (!(!opModeIsActive() ||
+                    !(runtime.seconds() < timeoutS) ||
+                    !slide.isBusy()) {
+
+            }
 
                 // Display it for the driver.
                 telemetry.addData("Running to",  " %7d :%7d", newSlideTarget);
@@ -164,3 +173,4 @@ public class LinearSlideRunByEncoder extends LinearOpMode {
         }
     }
 }
+*/

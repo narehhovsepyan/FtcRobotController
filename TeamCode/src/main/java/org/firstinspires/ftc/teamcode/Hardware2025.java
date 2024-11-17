@@ -5,6 +5,7 @@ package org.firstinspires.ftc.teamcode;
 import android.graphics.Color;
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -28,12 +29,6 @@ public class Hardware2025 {
     /* Declare OpMode members. */
     private LinearOpMode myOpMode = null;   // gain access to methods in the calling OpMode.
 
-
-
-    Servo clawServo;
-    TouchSensor touchSensor;  // Touch sensor Object
-
-
     // Define Motor and Servo objects  (Make them private so they can't be accessed externally)
     private final ElapsedTime runtime = new ElapsedTime();
     private DcMotor leftFrontDrive = null;
@@ -41,6 +36,7 @@ public class Hardware2025 {
     private DcMotor rightFrontDrive = null;
     private DcMotor rightBackDrive = null;
     private DcMotor slide = null;
+    private DcMotor arm = null;
 
     // Define IMU object and headings (Make it private so it can't be accessed externally)
     private IMU imu = null;
@@ -74,6 +70,11 @@ public class Hardware2025 {
     static final double COUNTS_PER_INCH = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
             (WHEEL_DIAMETER_INCHES * Math.PI);
 
+    static final double COUNTS_PER_REVOLUTION_SLIDE = 288;
+    static final double SLIDE_GEAR_REDUCTION = 2;
+    static final double COUNTS_PER_INCH_SLIDE = (COUNTS_PER_REVOLUTION_SLIDE * SLIDE_GEAR_REDUCTION) /
+            (1.3125 * Math.PI);
+
     //necessaert???
     static final double DRIVE_SPEED = 0.6;
     static final double TURN_SPEED = 1.0;
@@ -82,9 +83,13 @@ public class Hardware2025 {
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
     static final double OPEN_SERVO_CLAW = 0.8;
-    static final double CLOSE_SERVO_CLAW = 0.46;
+    static final double CLOSE_SERVO_CLAW = 0.23;
+    private static final double BEAK_OPEN = .7;
+    private static final double BEAK_CLOSE = .5;
 
-
+    Servo clawServo;
+    Servo beakServo;
+    TouchSensor touchSensor;  // Touch sensor Object
 
     // Define a constructor that allows the OpMode to pass a reference to itself.
     public Hardware2025(LinearOpMode opmode) {
@@ -106,6 +111,7 @@ public class Hardware2025 {
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
         slide = myOpMode.hardwareMap.get(DcMotor.class, "slide");
+        arm = myOpMode.hardwareMap.get(DcMotor.class, "arm");
         colorSensor = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color");
         if (colorSensor instanceof SwitchableLight) {
             ((SwitchableLight) colorSensor).enableLight(true);
@@ -116,6 +122,8 @@ public class Hardware2025 {
 //        magneticSensorStart = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_start");
         touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
         clawServo = myOpMode.hardwareMap.get(Servo.class, "claw_servo");
+        beakServo = myOpMode.hardwareMap.get(Servo.class, "beak_servo");
+
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
@@ -125,6 +133,9 @@ public class Hardware2025 {
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
         slide.setDirection(DcMotor.Direction.FORWARD);
+        slide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        arm.setDirection(DcMotor.Direction.FORWARD);
 
         // Retrieve the IMU from the hardware map
         imu = myOpMode.hardwareMap.get(IMU.class, "imu");
@@ -138,6 +149,7 @@ public class Hardware2025 {
         resetHeading();
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
+
     }
 
     // end method initTfod()
@@ -305,6 +317,14 @@ public class Hardware2025 {
         clawServo.setPosition(CLOSE_SERVO_CLAW);
     }
 
+    public void openBeak() {
+        clawServo.setPosition(BEAK_OPEN);
+    }
+
+    public void closeBeak() {
+        clawServo.setPosition(BEAK_CLOSE);
+    }
+
     public double getSteeringCorrection(double desiredHeading, double proportionalGain) {
         targetHeading = desiredHeading;  // Save for telemetry
         // Get the robot heading by applying an offset to the IMU heading
@@ -330,6 +350,18 @@ public class Hardware2025 {
             driveRobot(0, 0, turnSpeed);
         }
         stop();
+    }
+
+    public void startSlide() {
+        moveSlide(0.3);
+        if (magneticSensorWall.isPressed()){
+            slide.setPower(0.0);
+            moveSlide(0.0);
+        }
+    }
+
+    public void moveArm(double power){
+        arm.setPower(power);
     }
 
     public void stop() {
@@ -388,19 +420,13 @@ public class Hardware2025 {
     public void slideByEncoder(double speed, double distance, double timeout) {
             int newSlideTarget;
             if (myOpMode.opModeIsActive()) {
-                DcMotor.RunMode oldMotorMode = slide.getMode();
-
-                setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
                 // Determine new target position, and pass to motor controller
-                newSlideTarget = slide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+                newSlideTarget = slide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
                 slide.setTargetPosition(newSlideTarget);
-
-                setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
-
+                slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
                 runtime.reset();
                 slide.setPower(Math.abs(speed));
+
 
                 while (myOpMode.opModeIsActive() &&
                         (runtime.seconds() < timeout) &&
@@ -412,8 +438,8 @@ public class Hardware2025 {
                     myOpMode.telemetry.update();
                 }
 
-                stop();
-                setMotorMode(oldMotorMode);
+                slide.setPower(0);
+                slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
                 myOpMode.sleep(500);
             }
         }
