@@ -82,7 +82,7 @@ public class Hardware2025 {
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
-    static final double OPEN_SERVO_CLAW = 0.8;
+    static final double OPEN_SERVO_CLAW = 0.7;
     static final double CLOSE_SERVO_CLAW = 0.23;
     private static final double BEAK_OPEN = .7;
     private static final double BEAK_CLOSE = .5;
@@ -318,11 +318,11 @@ public class Hardware2025 {
     }
 
     public void openBeak() {
-        clawServo.setPosition(BEAK_OPEN);
+        beakServo.setPosition(BEAK_OPEN);
     }
 
     public void closeBeak() {
-        clawServo.setPosition(BEAK_CLOSE);
+        beakServo.setPosition(BEAK_CLOSE);
     }
 
     public double getSteeringCorrection(double desiredHeading, double proportionalGain) {

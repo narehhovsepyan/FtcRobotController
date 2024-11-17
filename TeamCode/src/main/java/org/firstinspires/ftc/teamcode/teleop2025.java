@@ -116,16 +116,22 @@ public class teleop2025 extends LinearOpMode {
             }
 
             //open and close claw via touch sensor
-            if (gamepad2.right_bumper) {
+            if (gamepad2.right_bumper || robot.touchSensor.isPressed()) {
                 robot.closeClaw();
-                telemetry.addData("GamepadRBumper", "Is Pressed");
-
+                telemetry.addData("GamepadRBumper or TouchSensor", "Is Pressed");
+            } else {
+                    telemetry.addData("GamepadRBumper", "Is Not Pressed");
+                    robot.openClaw();
             }
 
             if (gamepad2.left_bumper) {
-                robot.openClaw();
-                telemetry.addData("GamepaLRBumper", "Is Pressed");
-            }
+                robot.closeBeak();
+                telemetry.addData("GamepadLBumper", "Is Pressed");
+
+            } else {
+                telemetry.addData("GamepadLBumper", "Is Not Pressed");
+                robot.openBeak();
+                }
 
             //move the arm
             if (gamepad2.dpad_right) {
