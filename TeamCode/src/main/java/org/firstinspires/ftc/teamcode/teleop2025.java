@@ -99,20 +99,20 @@ public class teleop2025 extends LinearOpMode {
 
             //go to the pickup height
             if (gamepad2.a) {
-                robot.slideByEncoder(.5,0,10);
+                robot.slideByEncoder(.5, 0, 10);
             }
 
             //go to bar 1 height- moved 2.5
             if (gamepad2.b) {
-                robot.slideByEncoder(.5,1,10);
-                robot.straightByEncoder(.3,1,10);
-                robot.slideByEncoder(.5,6.5,10);
+                robot.slideByEncoder(.5, 1, 10);
+                robot.straightByEncoder(.3, 1, 10);
+                robot.slideByEncoder(.5, 6.5, 10);
             }
 
             if (gamepad2.x) {
-                robot.slideByEncoder(.5,18,15);
-                robot.straightByEncoder(.3,1,5);
-                robot.slideByEncoder(.5,16,10);
+                robot.slideByEncoder(.5, 18, 15);
+                robot.straightByEncoder(.3, 1, 5);
+                robot.slideByEncoder(.5, 16, 10);
             }
 
             //open and close claw via touch sensor
@@ -120,8 +120,8 @@ public class teleop2025 extends LinearOpMode {
                 robot.closeClaw();
                 telemetry.addData("GamepadRBumper or TouchSensor", "Is Pressed");
             } else {
-                    telemetry.addData("GamepadRBumper", "Is Not Pressed");
-                    robot.openClaw();
+                telemetry.addData("GamepadRBumper", "Is Not Pressed");
+                robot.openClaw();
             }
 
             if (gamepad2.left_bumper) {
@@ -131,7 +131,7 @@ public class teleop2025 extends LinearOpMode {
             } else {
                 telemetry.addData("GamepadLBumper", "Is Not Pressed");
                 robot.openBeak();
-                }
+            }
 
             //move the arm
             if (gamepad2.dpad_right) {
@@ -144,25 +144,25 @@ public class teleop2025 extends LinearOpMode {
 
 
             /** ?if (gamepad2.a){
-                robot.setSlideTargetPosition(Hardware2025.SlidePosition.START);
-            }
-            if (gamepad2.b){
-                robot.setSlideTargetPosition(Hardware2025.SlidePosition.WALL);
-            }
-            if (gamepad2.x){
-                robot.setSlideTargetPosition(Hardware2025.SlidePosition.LOW);
-            }
-            if (gamepad2.y){
-                robot.setSlideTargetPosition(Hardware2025.SlidePosition.HIGH);
-            }
+             robot.setSlideTargetPosition(Hardware2025.SlidePosition.START);
+             }
+             if (gamepad2.b){
+             robot.setSlideTargetPosition(Hardware2025.SlidePosition.WALL);
+             }
+             if (gamepad2.x){
+             robot.setSlideTargetPosition(Hardware2025.SlidePosition.LOW);
+             }
+             if (gamepad2.y){
+             robot.setSlideTargetPosition(Hardware2025.SlidePosition.HIGH);
+             }
 
-                        if (gamepad2.dpad_up) {
-                robot.moveSlide(1);
-            }
+             if (gamepad2.dpad_up) {
+             robot.moveSlide(1);
+             }
 
-            if (gamepad2.dpad_down) {
-                robot.moveSlide(-1);
-            }
+             if (gamepad2.dpad_down) {
+             robot.moveSlide(-1);
+             }
 
              private void driveRobotFC(double v, double gp1LX, double gp1RX)}
              private void resetYaw(){}
@@ -174,7 +174,7 @@ public class teleop2025 extends LinearOpMode {
              if (gamepad2.dpad_down) {
              robot.moveSlide(-1);
              }
-        **/
+             **/
 
         }
     }

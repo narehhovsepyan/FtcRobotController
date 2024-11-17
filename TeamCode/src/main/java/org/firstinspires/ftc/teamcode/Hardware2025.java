@@ -47,14 +47,18 @@ public class Hardware2025 {
 
     // color sensing
     public enum sampleColor {RED, YELLOW, BLUE, NONE} //color sensing enum
+
     private NormalizedColorSensor colorSensor;
     private float colorSensorGain = 20;
-   // private TouchSensor touchSensor;
+    // private TouchSensor touchSensor;
     public TouchSensor magneticSensorLow;  // Touch sensor Object
     public TouchSensor magneticSensorWall;  // Touch sensor Object
     public TouchSensor magneticSensorHigh;  // Touch sensor Object
     public TouchSensor magneticSensorStart;  // Touch sensor Object
-    public enum SlidePosition { START, WALL, LOW, HIGH, NONE};
+
+    public enum SlidePosition {START, WALL, LOW, HIGH, NONE}
+
+    ;
     public SlidePosition slideCurrentPosition = SlidePosition.NONE;
 
     public void setSlideTargetPosition(SlidePosition slideTargetPosition) {
@@ -354,13 +358,13 @@ public class Hardware2025 {
 
     public void startSlide() {
         moveSlide(0.3);
-        if (magneticSensorWall.isPressed()){
+        if (magneticSensorWall.isPressed()) {
             slide.setPower(0.0);
             moveSlide(0.0);
         }
     }
 
-    public void moveArm(double power){
+    public void moveArm(double power) {
         arm.setPower(power);
     }
 
@@ -400,14 +404,14 @@ public class Hardware2025 {
         NormalizedRGBA colors = colorSensor.getNormalizedColors();
         float[] hsvValues = new float[3];
         Color.colorToHSV(colors.toColor(), hsvValues);
-        if (hsvValues[0] > 1 && hsvValues[0] <  75) {
+        if (hsvValues[0] > 1 && hsvValues[0] < 75) {
             myOpMode.telemetry.addData("Red", "%.3f", hsvValues[0]);
             return sampleColor.RED;
         } else if (hsvValues[0] > 75 && hsvValues[0] < 130) {
             myOpMode.telemetry.addData("Yellow", "%.3f", hsvValues[0]);
             return sampleColor.YELLOW;
         } else if (hsvValues[0] > 150 && hsvValues[0] < 280) {
-           myOpMode.telemetry.addData("Blue", "%.3f", hsvValues[0]);
+            myOpMode.telemetry.addData("Blue", "%.3f", hsvValues[0]);
             return sampleColor.BLUE;
 
         }
@@ -418,34 +422,34 @@ public class Hardware2025 {
     }
 
     public void slideByEncoder(double speed, double distance, double timeout) {
-            int newSlideTarget;
-            if (myOpMode.opModeIsActive()) {
-                // Determine new target position, and pass to motor controller
-                newSlideTarget = slide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
-                slide.setTargetPosition(newSlideTarget);
-                slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                runtime.reset();
-                slide.setPower(Math.abs(speed));
+        int newSlideTarget;
+        if (myOpMode.opModeIsActive()) {
+            // Determine new target position, and pass to motor controller
+            newSlideTarget = slide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
+            slide.setTargetPosition(newSlideTarget);
+            slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            runtime.reset();
+            slide.setPower(Math.abs(speed));
 
 
-                while (myOpMode.opModeIsActive() &&
-                        (runtime.seconds() < timeout) &&
-                        (slide.isBusy())) {
+            while (myOpMode.opModeIsActive() &&
+                    (runtime.seconds() < timeout) &&
+                    (slide.isBusy())) {
 
-                    // Display it for the driver.
-                    myOpMode.telemetry.addData("Running to", " st:%7d ", newSlideTarget);
-                    myOpMode.telemetry.addData("Currently at", " at st:%7d", slide.getCurrentPosition());
-                    myOpMode.telemetry.update();
-                }
-
-                slide.setPower(0);
-                slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-                myOpMode.sleep(500);
+                // Display it for the driver.
+                myOpMode.telemetry.addData("Running to", " st:%7d ", newSlideTarget);
+                myOpMode.telemetry.addData("Currently at", " at st:%7d", slide.getCurrentPosition());
+                myOpMode.telemetry.update();
             }
+
+            slide.setPower(0);
+            slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            myOpMode.sleep(500);
         }
+    }
 
 
-    public SlidePosition getSlideCurrent(){
+    public SlidePosition getSlideCurrent() {
 
 /* temporary commented out code
         if (magneticSensorStart.isPressed()) {
@@ -458,7 +462,7 @@ public class Hardware2025 {
         if (magneticSensorWall.isPressed()) {
             myOpMode.telemetry.addData("LinearSlide", "Is at wall");
             return SlidePosition.WALL;
-        }else myOpMode.telemetry.addData("linearSlide", "Is not at wall");
+        } else myOpMode.telemetry.addData("linearSlide", "Is not at wall");
 
 
 /*
@@ -478,7 +482,7 @@ public class Hardware2025 {
         return null;
     }
 
-    public double getSlidePower(){
+    public double getSlidePower() {
         return slide.getPower();
     }
 
@@ -649,16 +653,6 @@ public class Hardware2025 {
            }
        }
    }*/
-
-
-
-
-
-
-
-
-
-
 
 
 }
