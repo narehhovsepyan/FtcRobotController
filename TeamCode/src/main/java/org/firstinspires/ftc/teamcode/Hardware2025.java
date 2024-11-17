@@ -5,8 +5,6 @@ package org.firstinspires.ftc.teamcode;
 import android.graphics.Color;
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -19,7 +17,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.MagneticFlux;
 
 //CODE NOTES:
 //CLAW SERVO IS SERVO PORT 1
@@ -56,9 +53,13 @@ public class Hardware2025 {
     public TouchSensor magneticSensorHigh;  // Touch sensor Object
     public TouchSensor magneticSensorStart;  // Touch sensor Object
 
-    public enum SlidePosition {START, WALL, LOW, HIGH, NONE}
+    public enum SlidePosition {START, WALL, LOW, HIGH, NONE};
 
-    ;
+    //change these to correspond w inches of each position
+    public final double WALL_POSITION = 0;
+    public final double LOW_POSITION = 5.9;
+    public final double HIGH_POSITION = 19.4;
+
     public SlidePosition slideCurrentPosition = SlidePosition.NONE;
 
     public void setSlideTargetPosition(SlidePosition slideTargetPosition) {
@@ -76,8 +77,8 @@ public class Hardware2025 {
 
     static final double COUNTS_PER_REVOLUTION_SLIDE = 288;
     static final double SLIDE_GEAR_REDUCTION = 2;
-    static final double COUNTS_PER_INCH_SLIDE = (COUNTS_PER_REVOLUTION_SLIDE * SLIDE_GEAR_REDUCTION) /
-            (1.3125 * Math.PI);
+    static final double COUNTS_PER_INCH_SLIDE = (COUNTS_PER_REVOLUTION_SLIDE) /
+            (1.3125 * Math.PI * SLIDE_GEAR_REDUCTION);
 
     //necessaert???
     static final double DRIVE_SPEED = 0.6;
@@ -87,9 +88,11 @@ public class Hardware2025 {
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
     static final double OPEN_SERVO_CLAW = 0.7;
-    static final double CLOSE_SERVO_CLAW = 0.23;
+    static final double CLOSE_SERVO_CLAW = 0.2;
     private static final double BEAK_OPEN = .7;
     private static final double BEAK_CLOSE = .5;
+    private int slideTarget;
+    private double slideTimeout;
 
     Servo clawServo;
     Servo beakServo;
@@ -420,34 +423,49 @@ public class Hardware2025 {
 
 
     }
+     public void relativeSlideByEncoder(double speed, double distance, double timeout) {
+        // Determine new target position, and pass to motor controller
+        slideTimeout = timeout;
+        slideTarget = slide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
+        slide.setTargetPosition(slideTarget);
+        slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        runtime.reset();
+        slide.setPower(Math.abs(speed));
+    }
+    public void startSlideByEncoder(double speed, double position, double timeout) {
+        // Determine new target position, and pass to motor controller
+        slideTimeout = timeout;
+        slideTarget = (int) (position * COUNTS_PER_INCH_SLIDE);
+        slide.setTargetPosition(slideTarget);
+        slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        runtime.reset();
+        slide.setPower(Math.abs(speed));
+    }
 
-    public void slideByEncoder(double speed, double distance, double timeout) {
-        int newSlideTarget;
-        if (myOpMode.opModeIsActive()) {
-            // Determine new target position, and pass to motor controller
-            newSlideTarget = slide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
-            slide.setTargetPosition(newSlideTarget);
-            slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            runtime.reset();
-            slide.setPower(Math.abs(speed));
+    public void checkSlideByEncoderTimed() {
 
+        if ((runtime.seconds() < slideTimeout) && (slide.isBusy())) {
 
-            while (myOpMode.opModeIsActive() &&
-                    (runtime.seconds() < timeout) &&
-                    (slide.isBusy())) {
+            // Display it for the driver.
+            myOpMode.telemetry.addData("Running to", " st:%7d ", slideTarget);
+            myOpMode.telemetry.addData("Currently at", " at st:%7d", slide.getCurrentPosition());
+            myOpMode.telemetry.update();
+        }
+        else {
 
-                // Display it for the driver.
-                myOpMode.telemetry.addData("Running to", " st:%7d ", newSlideTarget);
-                myOpMode.telemetry.addData("Currently at", " at st:%7d", slide.getCurrentPosition());
-                myOpMode.telemetry.update();
-            }
-
-            slide.setPower(0);
-            slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            myOpMode.sleep(500);
+            stopSlideEncoder();
+//            myOpMode.sleep(500);
         }
     }
 
+    public void stopSlideEncoder() {
+        slide.setPower(0.01);
+        slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
+
+    public boolean isSlideBusy() {
+        return slide.isBusy();
+    }
 
     public SlidePosition getSlideCurrent() {
 

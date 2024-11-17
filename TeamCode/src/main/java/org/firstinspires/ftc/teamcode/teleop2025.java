@@ -29,12 +29,8 @@
 
 package org.firstinspires.ftc.teamcode;
 
-import android.widget.Switch;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 
@@ -97,22 +93,25 @@ public class teleop2025 extends LinearOpMode {
             }
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
+            //ignore input or cancel (another method, kill slide/stop slide) currently running operation if second button pressed
             //go to the pickup height
+
+
             if (gamepad2.a) {
-                robot.slideByEncoder(.5, 0, 10);
+                robot.relativeSlideByEncoder(.8, -7, 10);
+            }
+
+            if (gamepad2.b) {
+                robot.startSlideByEncoder(.5, robot.WALL_POSITION, 10);
             }
 
             //go to bar 1 height- moved 2.5
-            if (gamepad2.b) {
-                robot.slideByEncoder(.5, 1, 10);
-                robot.straightByEncoder(.3, 1, 10);
-                robot.slideByEncoder(.5, 6.5, 10);
+            if (gamepad2.x) {
+                robot.startSlideByEncoder(.5, robot.LOW_POSITION, 10);
             }
 
-            if (gamepad2.x) {
-                robot.slideByEncoder(.5, 18, 15);
-                robot.straightByEncoder(.3, 1, 5);
-                robot.slideByEncoder(.5, 16, 10);
+            if (gamepad2.y) {
+                robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 15);
             }
 
             //open and close claw via touch sensor
@@ -141,6 +140,8 @@ public class teleop2025 extends LinearOpMode {
             if (gamepad2.dpad_left) {
                 robot.moveArm(-.5);
             }
+
+            robot.checkSlideByEncoderTimed();
 
 
             /** ?if (gamepad2.a){
