@@ -16,15 +16,14 @@ public class autofar extends LinearOpMode {
         waitForStart();
 
         robot.driveDiagonalForTime(-.4, .5, 1.2);
+        robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 10);
+        robot.relativeSlideByEncoder(.8, -7, 10);
+        robot.openClaw();
 
-        robot.moveSlideTimed(1, 1.5); //move slide up//robot.openClaw();
-        robot.strafeTimed(-.5, .5);
-        robot.moveSlideTimed(-1, 1); //move slide back down
-        //robot.closeClaw();
-        robot.straightTimed(-.5, 4.5);
-        robot.strafeTimed(.5,1.5);
-        robot.straightTimed(-.5, 1.5);
-        robot.strafeTimed(-.5, 4.1);
+        robot.straightByEncoder(-.5, 36, 15);
+        robot.strafeTimed(.5,1); //test
+        robot.straightByEncoder(-.5, 12, 15);
+        robot.strafeTimed(-.5, 3); //test
 
         }
     }
