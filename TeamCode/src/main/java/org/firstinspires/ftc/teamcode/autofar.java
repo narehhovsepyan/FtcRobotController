@@ -21,9 +21,9 @@ public class autofar extends LinearOpMode {
         robot.openClaw();
 
         robot.straightByEncoder(-.5, 36, 15);
-        robot.strafeTimed(.5,1); //test
+        robot.strafeTimed(1,1.5); //test
         robot.straightByEncoder(-.5, 12, 15);
-        robot.strafeTimed(-.5, 3); //test
+        robot.strafeTimed(1, 3.5); //test
 
         }
     }
