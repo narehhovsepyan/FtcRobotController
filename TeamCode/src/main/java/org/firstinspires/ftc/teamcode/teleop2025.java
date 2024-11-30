@@ -78,7 +78,7 @@ public class teleop2025 extends LinearOpMode {
 
             //slow scale 1
             if (gamepad1.right_bumper) {
-                double slowScale = .33;
+                double slowScale = .25;
                 gp1LY *= slowScale;
                 gp1LX *= slowScale;
                 gp1RX *= slowScale;
@@ -86,7 +86,7 @@ public class teleop2025 extends LinearOpMode {
 
             //slow scale 2
             if (gamepad1.left_bumper) {
-                double slowScale = .25;
+                double slowScale = .33;
                 gp1LY *= slowScale;
                 gp1LX *= slowScale;
                 gp1RX *= slowScale;
@@ -118,7 +118,7 @@ public class teleop2025 extends LinearOpMode {
                 robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 10);
             }
             // Checks if the slide is where it should be
-            robot.checkSlideByEncoderTimed();
+            robot.isSlideDone();
 
             //open and close claw via touch sensor
             if (gamepad2.right_bumper || robot.touchSensor.isPressed()) {
@@ -136,14 +136,14 @@ public class teleop2025 extends LinearOpMode {
 
             // Move the arm to pick up a sample
             if (gamepad2.dpad_right) {
-                //robot.moveArm(.5);
-                robot.startArmByEncoder(.5, 5, 10);
+                robot.moveArm(1);
+                //robot.startArmByEncoder(.5, 5, 10);
             }
 
             // Move the arm back to the robot
             if (gamepad2.dpad_left) {
-                //robot.moveArm(-.5);
-                robot.startArmByEncoder(.5, -5, 10);
+                robot.moveArm(-.5);
+                //robot.startArmByEncoder(.5, -5, 10);
             }
 
             // Shut off arm power

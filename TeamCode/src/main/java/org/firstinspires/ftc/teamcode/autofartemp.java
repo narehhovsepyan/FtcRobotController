@@ -2,32 +2,41 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Autonomous(name = "autofar")
+@Autonomous(name = "autofartemp")
 //@Disabled
-public class autofar extends LinearOpMode {
+public class autofartemp extends LinearOpMode {
 
     Hardware2025 robot = new Hardware2025(this);
+    private final ElapsedTime runtime = new ElapsedTime();
 
-    @Override
+    //@Override
     public void runOpMode() {
         robot.init();
 
         robot.clawServo.setPosition(.2);
 
         waitForStart();
+        runtime.reset();
+
+        telemetry.addData("Status", "Ready to go");
         telemetry.update();
         robot.closeClaw();
+
+
+//        robot.driveDiagonalForTime(-.4, .5, 1);
+//        robot.driveDiagonalByEncoder(0.4, 0.5, 6.4, 1);
 
         robot.straightByEncoder(.5, 10, 15);
         robot.strafeByEncoder(.5, 10, 10);
 
-        //moving the slide
         robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 15);
         while (!robot.isSlideDone()){
         }
         robot.strafeByEncoder(.5, 3.6, 15);
-        robot.relativeSlideByEncoder(1, -6.5, 5);
+        runtime.reset();
+        robot.relativeSlideByEncoder(1, -8, 5);
         while(!robot.isSlideDone()) {
         }
         robot.clawServo.setPosition(0.7);
@@ -35,12 +44,10 @@ public class autofar extends LinearOpMode {
         while (!robot.isSlideDone()){
         }
 
-        //push sample
-        robot.strafeByEncoder(.5, -3, 10);
-        robot.straightByEncoder(.5, -36, 15); //test
-        robot.strafeByEncoder(.5, -5, 15); //test
-        robot.straightByEncoder(-.5, 12, 15); //test
-        robot.strafeByEncoder(.5, 15, 15); //test
-
+        robot.driveDiagonalForTime(-.5, -.6, 1.2);
+        robot.startSlideByEncoder(.5, robot.WALL_POSITION, 10);
+        while (!robot.isSlideDone()){
         }
+
     }
+}

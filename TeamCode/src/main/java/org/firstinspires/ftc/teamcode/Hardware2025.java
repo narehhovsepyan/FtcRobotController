@@ -82,8 +82,8 @@ public class Hardware2025 {
     static final double HEADING_THRESHOLD = 5.0;
     static final double OPEN_SERVO_CLAW = 0.7;
     static final double CLOSE_SERVO_CLAW = 0.2;
-    private static final double BEAK_OPEN = .7;
-    private static final double BEAK_CLOSE = .5;
+    private static final double BEAK_OPEN = .5;
+    private static final double BEAK_CLOSE = .7;
     private int slideTarget;
     private int armTarget;
     private double slideTimeout;
@@ -206,6 +206,68 @@ public class Hardware2025 {
             myOpMode.sleep(500);
         }
     }
+
+    public void strafeByEncoder(double speed, double distance, double timeout) {
+        int newLeftFrontTarget;
+        int newLeftBackTarget;
+        int newRightFrontTarget;
+        int newRightBackTarget;
+
+        if (myOpMode.opModeIsActive()) {
+            DcMotor.RunMode oldMotorMode = leftFrontDrive.getMode();
+
+            setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+            // Determine new target position, and pass to motor controller
+            // For strafing, left side motors move in opposite direction to right side motors
+            newLeftFrontTarget = leftFrontDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+            newLeftBackTarget = leftBackDrive.getCurrentPosition() - (int) (distance * COUNTS_PER_INCH); // Reversed
+            newRightFrontTarget = rightFrontDrive.getCurrentPosition() - (int) (distance * COUNTS_PER_INCH); // Reversed
+            newRightBackTarget = rightBackDrive.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH);
+
+            leftFrontDrive.setTargetPosition(newLeftFrontTarget);
+            leftBackDrive.setTargetPosition(newLeftBackTarget);
+            rightFrontDrive.setTargetPosition(newRightFrontTarget);
+            rightBackDrive.setTargetPosition(newRightBackTarget);
+
+            setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+            runtime.reset();
+            leftFrontDrive.setPower(Math.abs(speed));
+            leftBackDrive.setPower(Math.abs(speed));
+            rightFrontDrive.setPower(Math.abs(speed));
+            rightBackDrive.setPower(Math.abs(speed));
+
+            while (myOpMode.opModeIsActive() &&
+                    (runtime.seconds() < timeout) &&
+                    (leftFrontDrive.isBusy() && leftBackDrive.isBusy() && rightFrontDrive.isBusy() && rightBackDrive.isBusy())) {
+
+                // Display the data for the driver.
+                myOpMode.telemetry.addData("Running to", " lf:%7d lb:%7d rf:%7d rb:%7d", newLeftFrontTarget, newLeftBackTarget, newRightFrontTarget, newRightBackTarget);
+                myOpMode.telemetry.addData("Currently at", " at lf:%7d lb:%7d rf:%7d rb:%7d",
+                        leftFrontDrive.getCurrentPosition(), leftBackDrive.getCurrentPosition(), rightFrontDrive.getCurrentPosition(), rightBackDrive.getCurrentPosition());
+                myOpMode.telemetry.update();
+            }
+
+            stop();
+            setMotorMode(oldMotorMode);
+            myOpMode.sleep(500);
+        }
+    }
+
+    public void driveDiagonalByEncoder(double speed, double distance, double timeout) {
+        // Break down the diagonal movement into straight and strafe components
+        double straightDistance = distance * Math.cos(Math.PI / 4);  // Diagonal is 45 degrees, so cos(45) = 1/sqrt(2)
+        double strafeDistance = distance * Math.sin(Math.PI / 4);    // Similarly, sin(45) = 1/sqrt(2)
+
+        // First, move forward/straight by the appropriate amount
+        straightByEncoder(speed, straightDistance, timeout);
+
+        // Then, strafe by the appropriate amount
+        strafeByEncoder(speed, strafeDistance, timeout);
+    }
+
 
     //Drives for a set amount of time (takes time)
     public void driveTimed(double axial, double lateral, double yaw, double time) {
@@ -442,7 +504,7 @@ public class Hardware2025 {
         slide.setPower(Math.abs(speed));
     }
 
-    public void checkSlideByEncoderTimed() {
+    public boolean isSlideDone() {
 
         if ((runtime.seconds() < slideTimeout) && (slide.isBusy())) {
 
@@ -450,9 +512,11 @@ public class Hardware2025 {
             myOpMode.telemetry.addData("Running to", " st:%7d ", slideTarget);
             myOpMode.telemetry.addData("Currently at", " at st:%7d", slide.getCurrentPosition());
             myOpMode.telemetry.update();
-        } else {
+            return false;
 
+        } else {
             stopSlideEncoder();
+            return true;
         }
     }
 
@@ -621,7 +685,7 @@ public class Hardware2025 {
                                moveSlide(0.0); } } } } }}
 */
 }
-
+}
 
 
 
