@@ -26,8 +26,8 @@ public class autofar extends LinearOpMode {
         robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 15);
         while (!robot.isSlideDone()){
         }
-        robot.strafeByEncoder(.5, 3.6, 15);
-        robot.relativeSlideByEncoder(1, -6.5, 5);
+        robot.strafeByEncoder(.5, 3.1, 15);
+        robot.relativeSlideByEncoder(.5, -4, 5);
         while(!robot.isSlideDone()) {
         }
         robot.clawServo.setPosition(0.7);
@@ -37,10 +37,10 @@ public class autofar extends LinearOpMode {
 
         //push sample
         robot.strafeByEncoder(.5, -3, 10);
-        robot.straightByEncoder(.5, -36, 15); //test
-        robot.strafeByEncoder(.5, -5, 15); //test
-        robot.straightByEncoder(-.5, 12, 15); //test
-        robot.strafeByEncoder(.5, 15, 15); //test
+        robot.straightByEncoder(.5, -13, 15); //test
+        robot.strafeByEncoder(.5, 12, 15); //test
+        robot.straightByEncoder(-.5, -2.25, 15); //test
+        robot.strafeByEncoder(.5, -22, 15); //test
 
         }
     }

@@ -34,9 +34,9 @@ public class autofartemp extends LinearOpMode {
         robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 15);
         while (!robot.isSlideDone()){
         }
-        robot.strafeByEncoder(.5, 3.6, 15);
+        robot.strafeByEncoder(.5, 3.2, 15);
         runtime.reset();
-        robot.relativeSlideByEncoder(1, -8, 5);
+        robot.relativeSlideByEncoder(1, -6, 5);
         while(!robot.isSlideDone()) {
         }
         robot.clawServo.setPosition(0.7);
@@ -44,7 +44,7 @@ public class autofartemp extends LinearOpMode {
         while (!robot.isSlideDone()){
         }
 
-        robot.driveDiagonalForTime(-.5, -.6, 1.2);
+        robot.driveDiagonalForTime(-.6, -.7, 1.2);
         robot.startSlideByEncoder(.5, robot.WALL_POSITION, 10);
         while (!robot.isSlideDone()){
         }

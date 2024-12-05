@@ -100,7 +100,7 @@ public class teleop2025 extends LinearOpMode {
 
             // Clip on to bar
             if (gamepad2.a) {
-                robot.relativeSlideByEncoder(.8, -4.5, 10);
+                robot.relativeSlideByEncoder(1, -4.5, 10);
             }
 
             // Go to wall position
@@ -121,7 +121,7 @@ public class teleop2025 extends LinearOpMode {
             robot.isSlideDone();
 
             //open and close claw via touch sensor
-            if (gamepad2.right_bumper || robot.touchSensor.isPressed()) {
+            if (gamepad2.right_bumper) {
                 robot.closeClaw();
             } else {
                 robot.openClaw();
@@ -129,20 +129,19 @@ public class teleop2025 extends LinearOpMode {
 
             if (gamepad2.left_bumper) {
                 robot.closeBeak();
-
             } else {
                 robot.openBeak();
             }
 
             // Move the arm to pick up a sample
-            if (gamepad2.dpad_right) {
+            if (gamepad2.dpad_left) {
                 robot.moveArm(1);
                 //robot.startArmByEncoder(.5, 5, 10);
             }
 
             // Move the arm back to the robot
-            if (gamepad2.dpad_left) {
-                robot.moveArm(-.5);
+            if (gamepad2.dpad_right) {
+                robot.moveArm(-1);
                 //robot.startArmByEncoder(.5, -5, 10);
             }
 
