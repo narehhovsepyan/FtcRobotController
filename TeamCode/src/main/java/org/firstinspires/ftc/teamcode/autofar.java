@@ -9,7 +9,6 @@ public class autofar extends LinearOpMode {
 
     Hardware2025 robot = new Hardware2025(this);
 
-    @Override
     public void runOpMode() {
         robot.init();
 
@@ -19,28 +18,55 @@ public class autofar extends LinearOpMode {
         telemetry.update();
         robot.closeClaw();
 
-        robot.straightByEncoder(.5, 10, 15);
-        robot.strafeByEncoder(.5, 10, 10);
+        //get to submersible
+        robot.strafeByEncoder(1, 8.2, 10);
+        robot.straightByEncoder(1, 6, 15);
 
-        //moving the slide
-        robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 15);
-        while (!robot.isSlideDone()){
-        }
-        robot.strafeByEncoder(.5, 3.1, 15);
-        robot.relativeSlideByEncoder(.5, -4, 5);
+        //score specimen
+        robot.scoreSpecimen();
+        robot.strafeByEncoder(.5, -4, 10);
+
+        //push sample 1
+        robot.straightByEncoder(1, -10, 15); //test
+        robot.strafeByEncoder(1, 12, 15); //test
+        robot.straightByEncoder(.5, -2.25, 15); //test
+        robot.strafeByEncoder(1, -21, 15); //test
+
+        robot.strafeByEncoder(1, 21, 15);
+        robot.pushSampleFar();
+        //ROTATE 180 DEGREES
+        robot.strafeByEncoder(.5, 1, 15); //TEST- THIS NEEDS TO GO UP TO WALL
+        robot.straightByEncoder(.5, -5, 15);
+        robot.closeClaw();
+        robot.relativeSlideByEncoder(.5, 2, 15);
         while(!robot.isSlideDone()) {
         }
-        robot.clawServo.setPosition(0.7);
-        robot.startSlideByEncoder(.5, robot.WALL_POSITION, 15);
-        while (!robot.isSlideDone()){
-        }
+        robot.strafeByEncoder(.5, -10, 15);
+        //ROTATE 180 DEGREES
 
-        //push sample
+        robot.straightByEncoder(.5, 10, 15);
+        robot.strafeByEncoder(.5, 3, 15);
+
+        robot.scoreSpecimen();
         robot.strafeByEncoder(.5, -3, 10);
+
         robot.straightByEncoder(.5, -13, 15); //test
         robot.strafeByEncoder(.5, 12, 15); //test
-        robot.straightByEncoder(-.5, -2.25, 15); //test
-        robot.strafeByEncoder(.5, -22, 15); //test
+        robot.straightByEncoder(.5, -4.5, 15); //test
 
+        robot.pushSampleFar();
+        //ROTATE 180 DEGREES
+        robot.strafeByEncoder(.5, 1, 15); //TEST- THIS NEEDS TO GO UP TO WALL
+        robot.straightByEncoder(.5, -10, 15);
+        robot.closeClaw();
+        robot.relativeSlideByEncoder(.5, 2, 15);
+        while(!robot.isSlideDone()) {
         }
+        robot.strafeByEncoder(.5, -10, 15);
+        //ROTATE 180 DEGREES
+        robot.straightByEncoder(.5, 5, 15);
+
+        robot.scoreSpecimen();
+
+    }
     }

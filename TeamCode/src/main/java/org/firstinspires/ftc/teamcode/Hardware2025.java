@@ -549,6 +549,38 @@ public class Hardware2025 {
         arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         runtime.reset();
         arm.setPower(Math.abs(speed));
+    }
+
+    //auto methods!
+    public void scoreSpecimen() {
+        //moving the slide
+        startSlideByEncoder(.5, HIGH_POSITION, 15);
+        while (!isSlideDone()){
+        }
+        strafeByEncoder(.5, 3.1, 15);
+        relativeSlideByEncoder(1, -2, 5);
+        while(!isSlideDone()) {
+        }
+        strafeByEncoder(.5, 2, 15);
+        relativeSlideByEncoder(1, -4,5);
+        while(!isSlideDone()) {
+        }
+        clawServo.setPosition(0.7);
+        startSlideByEncoder(.5, WALL_POSITION, 15);
+        while (!isSlideDone()){
+        }
+    }
+
+    public void pushSampleFar() {
+        straightByEncoder(.5, -2.25, 15);
+        strafeByEncoder(1, -22, 15);
+    }
+
+    public void pushSampleClose() {
+        strafeByEncoder(.5, 22, 15);
+        straightByEncoder(.5, 2.3, 15);
+        strafeByEncoder(1, -22, 15);
+    }
 
 /* Code for next qualifier
        if (magneticSensorLow.isPressed()) {
@@ -685,7 +717,7 @@ public class Hardware2025 {
                                moveSlide(0.0); } } } } }}
 */
 }
-}
+
 
 
 

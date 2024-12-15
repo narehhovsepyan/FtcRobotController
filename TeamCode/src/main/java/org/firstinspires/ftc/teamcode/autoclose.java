@@ -24,38 +24,29 @@ public class autoclose extends LinearOpMode {
         telemetry.update();
         robot.closeClaw();
 
-
 //        robot.driveDiagonalForTime(-.4, .5, 1);
 //        robot.driveDiagonalByEncoder(0.4, 0.5, 6.4, 1);
 
-        robot.straightByEncoder(.5, -10, 15);
-        robot.strafeByEncoder(.5, 10, 10);
+        robot.strafeByEncoder(1, 10.2, 10);
+        robot.straightByEncoder(-1, -6, 15);
 
-        robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 15);
+        robot.scoreSpecimen();
+
+        //pushes first sample
+        robot.strafeByEncoder(1, -3, 10);
+        robot.straightByEncoder(.5, 10, 15); //test
+        robot.strafeByEncoder(.5, 14, 15); //test
+        robot.straightByEncoder(-.5, 2.25, 15); //test
+        robot.strafeByEncoder(.5, -24, 15);
+        robot.strafeByEncoder(.5, 2, 15);
+
+        robot.pushSampleClose();
+        robot.pushSampleClose();
+
+        robot.strafeByEncoder(.5,-22,15);
+        robot.relativeSlideByEncoder(.5, 2, 15);
         while (!robot.isSlideDone()){
         }
-        robot.strafeByEncoder(.5, 3.24, 15);
-        runtime.reset();
-        robot.relativeSlideByEncoder(1, -4, 5);
-        while(!robot.isSlideDone()) {
-        }
-        robot.clawServo.setPosition(0.7);
-        robot.startSlideByEncoder(.5, robot.WALL_POSITION, 15);
-        while (!robot.isSlideDone()){
-        }
-//
-//        robot.strafeByEncoder(.5, -3.2, 15);
-//        robot.straightByEncoder(.5, 13, 15);
-//        robot.strafeByEncoder(.5, 15, 15);
-//        robot.startSlideByEncoder(.5, robot.LOW_POSITION, 10);
-//        while (!robot.isSlideDone()){
-//        }
-//        robot.straightByEncoder(.5, -4, 15);
-//
-////        robot.driveDiagonalForTime(.5, -.6, 1.2);
-//        robot.startSlideByEncoder(.5, robot.LOW_POSITION, 10);
-//        while (!robot.isSlideDone()){
-//        }
-
+        robot.strafeByEncoder(.5,-22,15);
     }
 }
