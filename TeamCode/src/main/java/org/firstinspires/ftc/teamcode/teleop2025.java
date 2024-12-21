@@ -65,6 +65,9 @@ public class teleop2025 extends LinearOpMode {
             if (gamepad1.options) {
                 robot.resetYaw();
             }
+            if (robot.magneticSensor.isPressed()){
+                robot.resetSlideEncoder();
+            }
 
             //For telemetry
             robot.getColor();
@@ -143,6 +146,10 @@ public class teleop2025 extends LinearOpMode {
             if (gamepad2.dpad_right) {
                 robot.moveArm(-1);
                 //robot.startArmByEncoder(.5, -5, 10);
+            }
+
+            if (gamepad2.left_trigger > 0.05) {
+                robot.moveArm(-gamepad2.left_trigger);
             }
 
             // Shut off arm power

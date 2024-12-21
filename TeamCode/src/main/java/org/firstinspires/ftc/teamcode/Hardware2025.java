@@ -45,9 +45,9 @@ public class Hardware2025 {
     private float colorSensorGain = 20;
 
     // Magnetic sensing
-    public TouchSensor magneticSensorWall;
+    public TouchSensor magneticSensor;
 
-    public enum SlidePosition {START, WALL, LOW, HIGH, NONE};
+    public enum SlidePosition {ZERO, NONE};
 
     // Slide positions
     public final double WALL_POSITION = 0;
@@ -56,9 +56,7 @@ public class Hardware2025 {
     public SlidePosition slideTargetPosition = SlidePosition.NONE;
 
     // Magnetic slide sensing for future
-    public TouchSensor magneticSensorLow;  // Touch sensor Object
-    public TouchSensor magneticSensorHigh;  // Touch sensor Object
-    public TouchSensor magneticSensorStart;  // Touch sensor Object
+
 
     public void setSlideTargetPosition(SlidePosition slideTargetPosition) {
         this.slideTargetPosition = slideTargetPosition;
@@ -70,6 +68,8 @@ public class Hardware2025 {
     static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
     static final double COUNTS_PER_INCH = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
             (WHEEL_DIAMETER_INCHES * Math.PI);
+    static final double COUNTS_PER_INCH_STRAFE = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
+            (WHEEL_DIAMETER_INCHES * Math.PI) / 2;
 
     static final double COUNTS_PER_REVOLUTION_SLIDE = 288;
     static final double SLIDE_GEAR_REDUCTION = 2;
@@ -83,7 +83,7 @@ public class Hardware2025 {
     static final double OPEN_SERVO_CLAW = 0.7;
     static final double CLOSE_SERVO_CLAW = 0.2;
     private static final double BEAK_OPEN = .6;
-    private static final double BEAK_CLOSE = .8;
+    private static final double BEAK_CLOSE = .95;
     private int slideTarget;
     private int armTarget;
     private double slideTimeout;
@@ -121,7 +121,7 @@ public class Hardware2025 {
         if (colorSensor instanceof SwitchableLight) {
             ((SwitchableLight) colorSensor).enableLight(true);
         }
-        magneticSensorWall = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_wall");
+        magneticSensor = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor");
         touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
         clawServo = myOpMode.hardwareMap.get(Servo.class, "claw_servo");
         beakServo = myOpMode.hardwareMap.get(Servo.class, "beak_servo");
@@ -152,9 +152,7 @@ public class Hardware2025 {
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
 
-//      magneticSensorLow = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_low");
-//      magneticSensorHigh = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_high");
-//      magneticSensorStart = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_start");
+
     }
 
     // end method initTfod()
@@ -417,7 +415,7 @@ public class Hardware2025 {
 
     public void startSlide() {
         moveSlide(0.3);
-        if (magneticSensorWall.isPressed()) {
+        if (magneticSensor.isPressed()) {
             slide.setPower(0.0);
             moveSlide(0.0);
         }
@@ -530,13 +528,20 @@ public class Hardware2025 {
     }
 
     public SlidePosition getSlideCurrent() {
-        if (magneticSensorWall.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at wall");
-            return SlidePosition.WALL;
-        } else myOpMode.telemetry.addData("linearSlide", "Is not at wall");
+        if (magneticSensor.isPressed()) {
+            myOpMode.telemetry.addData("LinearSlide", "Is at zero");
+            return SlidePosition.ZERO;
+        } else myOpMode.telemetry.addData("linearSlide", "Is not at zero");
 
         return null;
     }
+
+    public void resetSlideEncoder() {
+        slide.setPower(0.0);
+        slide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+    }
+
     public double getSlidePower() {
         return slide.getPower();
     }
@@ -551,19 +556,10 @@ public class Hardware2025 {
         arm.setPower(Math.abs(speed));
 
 /* Code for next qualifier
-       if (magneticSensorLow.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at low");
-            return SlidePosition.LOW;
-        }
 
-        if (magneticSensorHigh.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at high");
-            return SlidePosition.HIGH;
-        }
-
-           if (magneticSensorStart.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at start");
-            return SlidePosition.START;
+           if (magneticSensor.isPressed()) {
+            myOpMode.telemetry.addData("LinearSlide", "Is at zero");
+            return SlidePosition.ZERO;
         }
 
    public void runSlide() {
