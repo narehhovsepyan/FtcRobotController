@@ -31,6 +31,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.Range;
 
 
 /**
@@ -138,6 +139,13 @@ public class teleop2025 extends LinearOpMode {
                 robot.moveArm(1);
                 //robot.startArmByEncoder(.5, 5, 10);
             }
+
+            double slidePower = -gamepad1.left_stick_y;
+            double leftPower    = Range.clip(slidePower, -1.0, 1.0) ;
+            double rightPower   = Range.clip(slidePower, -1.0, 1.0) ;
+
+            robot.moveLeftSlide(leftPower);
+            robot.moveRightSlide(rightPower);
 
             // Move the arm back to the robot
             if (gamepad2.dpad_right) {

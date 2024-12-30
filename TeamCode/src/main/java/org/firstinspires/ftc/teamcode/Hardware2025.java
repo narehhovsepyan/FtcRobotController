@@ -25,7 +25,8 @@ public class Hardware2025 {
     private DcMotor leftBackDrive = null;
     private DcMotor rightFrontDrive = null;
     private DcMotor rightBackDrive = null;
-    private DcMotor slide = null;
+    private DcMotor leftSlide = null;
+    private DcMotor rightSlide = null;
     private DcMotor arm = null;
 
     // Define IMU object and headings (Make it private so it can't be accessed externally)
@@ -47,7 +48,7 @@ public class Hardware2025 {
     // Magnetic sensing
     public TouchSensor magneticSensorWall;
 
-    public enum SlidePosition {START, WALL, LOW, HIGH, NONE};
+    public enum SlidePosition {WALL, NONE};
 
     // Slide positions
     public final double WALL_POSITION = 0;
@@ -113,7 +114,8 @@ public class Hardware2025 {
         leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
-        slide = myOpMode.hardwareMap.get(DcMotor.class, "slide");
+        leftSlide = myOpMode.hardwareMap.get(DcMotor.class, "left_slide");
+        rightSlide = myOpMode.hardwareMap.get(DcMotor.class, "right_slide");
         arm = myOpMode.hardwareMap.get(DcMotor.class, "arm");
 
         // Define and Initialize sensors
@@ -134,9 +136,12 @@ public class Hardware2025 {
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-        slide.setDirection(DcMotor.Direction.FORWARD);
-        slide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftSlide.setDirection(DcMotor.Direction.FORWARD);
+        rightSlide.setDirection(DcMotor.Direction.REVERSE);
+        leftSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         arm.setDirection(DcMotor.Direction.FORWARD);
 
         // Retrieve the IMU from the hardware map
@@ -415,13 +420,13 @@ public class Hardware2025 {
         driveTimed(power, 0, 0, time);
     }
 
-    public void startSlide() {
-        moveSlide(0.3);
-        if (magneticSensorWall.isPressed()) {
-            slide.setPower(0.0);
-            moveSlide(0.0);
-        }
-    }
+//    public void startSlide() {
+//        moveSlide(0.3);
+//        if (magneticSensorWall.isPressed()) {
+//            slide.setPower(0.0);
+//            moveSlide(0.0);
+//        }
+//    }
 
     // Claw stuff
     public void openClaw() {
@@ -446,18 +451,24 @@ public class Hardware2025 {
     }
 
 
-    public void moveSlide(double power) {
-        slide.setPower(power);
+    public void moveLeftSlide(double power) {
+        leftSlide.setPower(power);
+    }
+
+    public void moveRightSlide(double power) {
+        rightSlide.setPower(power);
     }
 
     public void moveSlideTimed(double power, double time) {
-        slide.setPower(power);
+        leftSlide.setPower(power);
+        rightSlide.setPower(power);
         runtime.reset();
         while (myOpMode.opModeIsActive() && (runtime.seconds() < time)) {
             myOpMode.telemetry.addData("Path", "Leg 1: %4.1f S Elapsed", runtime.seconds());
             myOpMode.telemetry.update();
         }
-        slide.setPower(0.0);
+        leftSlide.setPower(0.0);
+        rightSlide.setPower(0.0);
     }
 
     public void driveDiagonalForTime(double forwardPower, double strafePower, double time) {
@@ -487,30 +498,35 @@ public class Hardware2025 {
     public void relativeSlideByEncoder(double speed, double distance, double timeout) {
         // Determine new target position, and pass to motor controller
         slideTimeout = timeout;
-        slideTarget = slide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
-        slide.setTargetPosition(slideTarget);
-        slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        slideTarget = leftSlide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
+        leftSlide.setTargetPosition(slideTarget);
+        rightSlide.setTargetPosition(slideTarget);
+        leftSlide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        rightSlide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         runtime.reset();
-        slide.setPower(Math.abs(speed));
+        leftSlide.setPower(Math.abs(speed));
+        rightSlide.setPower(Math.abs(speed));
     }
 
     public void startSlideByEncoder(double speed, double position, double timeout) {
         // Determine new target position, and pass to motor controller
         slideTimeout = timeout;
         slideTarget = (int) (position * COUNTS_PER_INCH_SLIDE);
-        slide.setTargetPosition(slideTarget);
-        slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        leftSlide.setTargetPosition(slideTarget);
+        rightSlide.setTargetPosition(slideTarget);
+        leftSlide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        rightSlide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         runtime.reset();
-        slide.setPower(Math.abs(speed));
+        leftSlide.setPower(Math.abs(speed));
     }
 
     public boolean isSlideDone() {
 
-        if ((runtime.seconds() < slideTimeout) && (slide.isBusy())) {
+        if ((runtime.seconds() < slideTimeout) && (leftSlide.isBusy())) {
 
             // Display it for the driver.
             myOpMode.telemetry.addData("Running to", " st:%7d ", slideTarget);
-            myOpMode.telemetry.addData("Currently at", " at st:%7d", slide.getCurrentPosition());
+            myOpMode.telemetry.addData("Currently at", " at st:%7d", leftSlide.getCurrentPosition());
             myOpMode.telemetry.update();
             return false;
 
@@ -521,12 +537,24 @@ public class Hardware2025 {
     }
 
     public void stopSlideEncoder() {
-        slide.setPower(0.01);
-        slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftSlide.setPower(0.01);
+        rightSlide.setPower(0.01);
+        leftSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
+
+    public boolean isLeftSlideBusy() {
+        return leftSlide.isBusy();
+    }
+
+    public boolean isRightSlideBusy() {
+        return rightSlide.isBusy();
     }
 
     public boolean isSlideBusy() {
-        return slide.isBusy();
+        isRightSlideBusy();
+        isLeftSlideBusy();
+        return true;
     }
 
     public SlidePosition getSlideCurrent() {
@@ -538,7 +566,7 @@ public class Hardware2025 {
         return null;
     }
     public double getSlidePower() {
-        return slide.getPower();
+        return leftSlide.getPower();
     }
 
     public void startArmByEncoder(double speed, double position, double timeout) {
@@ -557,12 +585,12 @@ public class Hardware2025 {
         startSlideByEncoder(.5, HIGH_POSITION, 15);
         while (!isSlideDone()){
         }
-        strafeByEncoder(.5, 3.1, 15);
-        relativeSlideByEncoder(1, -2, 5);
+        strafeByEncoder(.5, 3, 15);
+        relativeSlideByEncoder(1, -3.2, 5);
         while(!isSlideDone()) {
         }
         strafeByEncoder(.5, 2, 15);
-        relativeSlideByEncoder(1, -4,5);
+        relativeSlideByEncoder(1, -5,5);
         while(!isSlideDone()) {
         }
         clawServo.setPosition(0.7);
@@ -572,14 +600,14 @@ public class Hardware2025 {
     }
 
     public void pushSampleFar() {
-        straightByEncoder(.5, -2.25, 15);
-        strafeByEncoder(1, -22, 15);
+        straightByEncoder(.5, -2.8, 15);
+        strafeByEncoder(.5, -21, 15);
     }
 
     public void pushSampleClose() {
-        strafeByEncoder(.5, 22, 15);
-        straightByEncoder(.5, 2.3, 15);
-        strafeByEncoder(1, -22, 15);
+        strafeByEncoder(.5, 23, 15);
+        straightByEncoder(.5, 2.2, 15);
+        strafeByEncoder(1, -23, 15);
     }
 
 /* Code for next qualifier
