@@ -140,7 +140,7 @@ public class teleop2025 extends LinearOpMode {
                 //robot.startArmByEncoder(.5, 5, 10);
             }
 
-            double slidePower = -gamepad1.left_stick_y;
+            double slidePower = -gamepad2.left_stick_y;
             double leftPower    = Range.clip(slidePower, -1.0, 1.0) ;
             double rightPower   = Range.clip(slidePower, -1.0, 1.0) ;
 
@@ -152,7 +152,6 @@ public class teleop2025 extends LinearOpMode {
                 robot.moveArm(-1);
                 //robot.startArmByEncoder(.5, -5, 10);
             }
-
             // Shut off arm power
             else {
                 robot.moveArm(0);

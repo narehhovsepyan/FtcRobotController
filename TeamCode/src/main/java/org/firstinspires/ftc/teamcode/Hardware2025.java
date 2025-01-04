@@ -81,8 +81,8 @@ public class Hardware2025 {
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
-    static final double OPEN_SERVO_CLAW = 0.7;
-    static final double CLOSE_SERVO_CLAW = 0.2;
+    static final double OPEN_SERVO_CLAW = 0.4;
+    static final double CLOSE_SERVO_CLAW = 0.0;
     private static final double BEAK_OPEN = .6;
     private static final double BEAK_CLOSE = .8;
     private int slideTarget;
