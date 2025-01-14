@@ -66,6 +66,9 @@ public class teleop2025 extends LinearOpMode {
             if (gamepad1.options) {
                 robot.resetYaw();
             }
+            if (robot.magneticSensor.isPressed()){
+                robot.resetSlideEncoder();
+            }
 
             //For telemetry
             robot.getColor();
@@ -77,6 +80,14 @@ public class teleop2025 extends LinearOpMode {
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
 
+            if (!robot.isSlideBusy()){
+                double slidePower = -gamepad2.left_stick_y;
+                double leftPower    = Range.clip(slidePower, -1.0, 1.0) ;
+                double rightPower   = Range.clip(slidePower, -1.0, 1.0) ;
+
+                robot.moveLeftSlide(leftPower);
+                robot.moveRightSlide(rightPower);
+            }
             //slow scale 1
             if (gamepad1.right_bumper) {
                 double slowScale = .25;
@@ -106,20 +117,24 @@ public class teleop2025 extends LinearOpMode {
 
             // Go to wall position
             if (gamepad2.b) {
-                robot.startSlideByEncoder(.5, robot.WALL_POSITION, 10);
+                robot.startSlideByEncoder(1, -1, 10);
             }
 
             // Go to low bar height
             if (gamepad2.x) {
-                robot.startSlideByEncoder(.5, robot.LOW_POSITION, 10);
+                robot.startSlideByEncoder(1, 10, 10);
             }
 
             // Go to high bar height
             if (gamepad2.y) {
-                robot.startSlideByEncoder(.5, robot.HIGH_POSITION, 10);
+                if (!robot.isSlideBusy()) {
+                    robot.startSlideByEncoder(1, 26, 10);
+                }
             }
             // Checks if the slide is where it should be
-            robot.isSlideDone();
+            //robot.isSlideDone();
+//            robot.slideWasReset();
+
 
             //open and close claw via touch sensor
             if (gamepad2.right_bumper) {
@@ -134,28 +149,43 @@ public class teleop2025 extends LinearOpMode {
                 robot.openBeak();
             }
 
+            /**
             // Move the arm to pick up a sample
             if (gamepad2.dpad_left) {
                 robot.moveArm(1);
-                //robot.startArmByEncoder(.5, 5, 10);
             }
-
-            double slidePower = -gamepad2.left_stick_y;
-            double leftPower    = Range.clip(slidePower, -1.0, 1.0) ;
-            double rightPower   = Range.clip(slidePower, -1.0, 1.0) ;
-
-            robot.moveLeftSlide(leftPower);
-            robot.moveRightSlide(rightPower);
 
             // Move the arm back to the robot
             if (gamepad2.dpad_right) {
                 robot.moveArm(-1);
-                //robot.startArmByEncoder(.5, -5, 10);
             }
-            // Shut off arm power
-            else {
-                robot.moveArm(0);
+
+            if (!gamepad2.dpad_right && !gamepad2.dpad_left) {
+                robot.startArmByEncoder(.01, 5, 10);
             }
+             **/
+
+            if (gamepad2.left_trigger > 0.05) {
+                robot.moveArm(.8 * gamepad2.left_trigger);
+            }
+
+            if (gamepad2.right_trigger > 0.05) {
+                robot.moveArm(gamepad2.right_trigger * -.8);
+            }
+
+            if ((gamepad2.right_trigger <= 0.05) && (gamepad2.left_trigger <= 0.05)) {
+                robot.moveArm(.1);
+            }
+
+            if (gamepad2.start && gamepad2.right_bumper){
+                robot.scoreOnHighBar();
+                telemetry.addData("Robot", "Is Scoring on High Bar");
+            }
+
+            if (gamepad2.back){
+                robot.hang();
+            }
+
         }
     }
 }

@@ -1,8 +1,16 @@
 package org.firstinspires.ftc.teamcode;
 
 import android.graphics.Color;
+import android.util.Log;
 
+import com.arcrobotics.ftclib.geometry.Pose2d;
+import com.arcrobotics.ftclib.geometry.Rotation2d;
+import com.arcrobotics.ftclib.geometry.Translation2d;
+import com.arcrobotics.ftclib.util.LUT;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.hardware.sparkfun.SparkFunOTOS;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -15,6 +23,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 public class Hardware2025 {
     /* Declare OpMode members. */
@@ -30,7 +39,7 @@ public class Hardware2025 {
     private DcMotor arm = null;
 
     // Define IMU object and headings (Make it private so it can't be accessed externally)
-    private IMU imu = null;
+    public IMU imu = null;
     private double robotHeading = 0;
     private double headingOffset = 0;
     private double headingError = 0;
@@ -38,6 +47,7 @@ public class Hardware2025 {
 
     // Run time (public)
     private final ElapsedTime runtime = new ElapsedTime();
+   public DistanceSensor sensorDistance;
 
     // Color sensing
     public enum sampleColor {RED, YELLOW, BLUE, NONE} //color sensing enum
@@ -46,20 +56,18 @@ public class Hardware2025 {
     private float colorSensorGain = 20;
 
     // Magnetic sensing
-    public TouchSensor magneticSensorWall;
+    public TouchSensor magneticSensor;
 
-    public enum SlidePosition {WALL, NONE};
+    public enum SlidePosition {ZERO, NONE}
 
     // Slide positions
     public final double WALL_POSITION = 0;
-    public final double LOW_POSITION = 5.9;
-    public final double HIGH_POSITION = 19.4;
+    public final double LOW_POSITION = 6;
+    public final double HIGH_POSITION = 25;
     public SlidePosition slideTargetPosition = SlidePosition.NONE;
-
-    // Magnetic slide sensing for future
-    public TouchSensor magneticSensorLow;  // Touch sensor Object
-    public TouchSensor magneticSensorHigh;  // Touch sensor Object
-    public TouchSensor magneticSensorStart;  // Touch sensor Object
+    public final double ROBOT_AT_BAR = 18.2;
+    public final double SCORING_POSITION = 10.7;
+    public final double HANG_POSITION = 3.4;
 
     public void setSlideTargetPosition(SlidePosition slideTargetPosition) {
         this.slideTargetPosition = slideTargetPosition;
@@ -72,20 +80,22 @@ public class Hardware2025 {
     static final double COUNTS_PER_INCH = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
             (WHEEL_DIAMETER_INCHES * Math.PI);
 
-    static final double COUNTS_PER_REVOLUTION_SLIDE = 288;
+    static final double COUNTS_PER_REVOLUTION_SLIDE = 1120;
     static final double SLIDE_GEAR_REDUCTION = 2;
     static final double COUNTS_PER_INCH_SLIDE = (COUNTS_PER_REVOLUTION_SLIDE) /
-            (1.3125 * Math.PI * SLIDE_GEAR_REDUCTION);
+            (1.27 * Math.PI * SLIDE_GEAR_REDUCTION);
 
     private double turnSpeed = 0;
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
-    static final double OPEN_SERVO_CLAW = 0.4;
-    static final double CLOSE_SERVO_CLAW = 0.0;
-    private static final double BEAK_OPEN = .6;
-    private static final double BEAK_CLOSE = .8;
+    static final double OPEN_SERVO_CLAW = 0.2;
+    static final double CLOSE_SERVO_CLAW = 0.03;
+    private static final double BEAK_OPEN = 0.5;
+    private static final double BEAK_CLOSE = .6;
     private int slideTarget;
+    private int rightSlideTarget;
+    private int leftSlideTarget;
     private int armTarget;
     private double slideTimeout;
     private double armTimeout;
@@ -94,6 +104,9 @@ public class Hardware2025 {
     Servo clawServo;
     Servo beakServo;
     TouchSensor touchSensor;  // Touch sensor Object
+
+    // Create an instance of the otos sensor
+    SparkFunOTOS myOtos;
 
     // Define a constructor that allows the OpMode to pass a reference to itself.
     public Hardware2025(LinearOpMode opmode) {
@@ -118,13 +131,17 @@ public class Hardware2025 {
         rightSlide = myOpMode.hardwareMap.get(DcMotor.class, "right_slide");
         arm = myOpMode.hardwareMap.get(DcMotor.class, "arm");
 
+        myOtos = myOpMode.hardwareMap.get(SparkFunOTOS.class, "sensor_otos"); //Otos sensor
+        configureOtos();
+
         // Define and Initialize sensors
         colorSensor = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color");
         if (colorSensor instanceof SwitchableLight) {
             ((SwitchableLight) colorSensor).enableLight(true);
         }
-        magneticSensorWall = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_wall");
+        magneticSensor = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor");
         touchSensor = myOpMode.hardwareMap.get(TouchSensor.class, "sensor_touch");
+        sensorDistance = myOpMode.hardwareMap.get(DistanceSensor.class, "distance_sensor");
         clawServo = myOpMode.hardwareMap.get(Servo.class, "claw_servo");
         beakServo = myOpMode.hardwareMap.get(Servo.class, "beak_servo");
 
@@ -136,12 +153,14 @@ public class Hardware2025 {
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-        leftSlide.setDirection(DcMotor.Direction.FORWARD);
-        rightSlide.setDirection(DcMotor.Direction.REVERSE);
+        leftSlide.setDirection(DcMotor.Direction.REVERSE);
+        rightSlide.setDirection(DcMotor.Direction.FORWARD);
         leftSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         leftSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rightSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftSlide.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightSlide.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         arm.setDirection(DcMotor.Direction.FORWARD);
 
         // Retrieve the IMU from the hardware map
@@ -156,14 +175,251 @@ public class Hardware2025 {
         resetHeading();
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
-
-//      magneticSensorLow = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_low");
-//      magneticSensorHigh = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_high");
-//      magneticSensorStart = myOpMode.hardwareMap.get(TouchSensor.class, "magnetic_sensor_start");
     }
-
     // end method initTfod()
 
+    //Configuring the otos sensor- for more detailed comments, refer to the SensorSparkFunOTOS.java file
+    private void configureOtos() {
+        myOpMode.telemetry.addLine("Configuring OTOS...");
+        myOpMode.telemetry.update();
+
+        // Set the desired units for linear and angular measurements- currently set to the default inches and degrees
+        myOtos.setLinearUnit(DistanceUnit.INCH);
+        myOtos.setAngularUnit(AngleUnit.DEGREES);
+
+        //Specify the offset for the sensor relative to the center of the robot.- chnsge
+        SparkFunOTOS.Pose2D offset = new SparkFunOTOS.Pose2D(.25, 4.5, 0);
+        myOtos.setOffset(offset);
+
+        // Set the linear and angular scalars, to compensate for scaling issues with the sensor measurements.
+        myOtos.setLinearScalar(1.0);
+        myOtos.setAngularScalar(1.0);
+        myOtos.calibrateImu();
+
+        // Reset the tracking algorithm (resets position to origin)- can be used to recover from some rare tracking errors
+        myOtos.resetTracking();
+
+        // After resetting the tracking, the OTOS reports the robot is at origin. If you do not start at the origin, set the OTOS location to match.
+        SparkFunOTOS.Pose2D currentPosition = new SparkFunOTOS.Pose2D(0, 0, 0);
+        myOtos.setPosition(currentPosition);
+
+        // Get the hardware and firmware version
+        SparkFunOTOS.Version hwVersion = new SparkFunOTOS.Version();
+        SparkFunOTOS.Version fwVersion = new SparkFunOTOS.Version();
+        myOtos.getVersionInfo(hwVersion, fwVersion);
+
+        myOpMode.telemetry.addLine("OTOS configured! Press start to get position data!");
+        myOpMode.telemetry.addLine();
+        myOpMode.telemetry.addLine(String.format("OTOS Hardware Version: v%d.%d", hwVersion.major, hwVersion.minor));
+        myOpMode.telemetry.addLine(String.format("OTOS Firmware Version: v%d.%d", fwVersion.major, fwVersion.minor));
+        myOpMode.telemetry.update();
+    }
+
+
+
+    public void driveByOtos(double distanceToTravelX, double distanceToTravelY, double targetHeadingDegrees) {
+
+        SparkFunOTOS.Pose2D pos = myOtos.getPosition(); // Get position
+
+        Translation2d currentT = new Translation2d(pos.x, pos.y);
+        Rotation2d currentR = Rotation2d.fromDegrees(pos.h);
+        Pose2d current = new Pose2d(currentT, currentR);
+
+        Translation2d targetT = new Translation2d(distanceToTravelX, distanceToTravelY);
+        Rotation2d targetR = Rotation2d.fromDegrees(targetHeadingDegrees);
+        // target is relative to current
+        targetT = currentT.plus(targetT);
+        Pose2d target = new Pose2d(targetT, targetR);
+
+        Translation2d toTravelT = target.getTranslation().minus(current.getTranslation());
+        Rotation2d toTravelR = target.getRotation().minus(current.getRotation());
+        double toTravelD = current.getTranslation().getDistance(target.getTranslation());
+
+        Log.i("FTC18 driveByOtos[start]", "========================= START drivebyOtos START =================================================");
+        Log.i("FTC18 driveByOtos[init]", "current = " + current.toString());
+        Log.i("FTC18 driveByOtos[init]", "target = " + target.toString());
+        Log.i("FTC18 driveByOtos[init]", "toTravelT = " + toTravelT.toString());
+        Log.i("FTC18 driveByOtos[init]", "toTravelR = " + toTravelR.toString());
+        Log.i("FTC18 driveByOtos[init]", String.format("toTravelD = %f", toTravelD));
+
+
+        double thresholdDistance = 1.0; // Distance threshold for stopping (x and y)
+        double angleThreshold = 0.1; //Angle threshold for stopping (radians)
+
+        //Variables for loop (as to not define the variables inside the loop)
+        double correctionX;
+        double correctionY;
+        double correctionH;
+
+        LUT<Double, Double> speeds = new LUT<Double, Double>()
+        {{
+            add(1.0, 1.0);
+            add(0.8, 0.9);
+            add(0.6, 0.8);
+            add(0.4, 0.7);
+            add(0.2, 0.5);
+            add(.10,0.3);
+            add(0.0000005, 0.15);
+            add(0.0, 0.0);
+        }};
+
+        //Loop to see where we are and need to go
+        while (myOpMode.opModeIsActive() && (Math.abs(toTravelT.getX()) > thresholdDistance || Math.abs(toTravelT.getY()) > thresholdDistance || Math.abs(toTravelR.getRadians()) > angleThreshold)) {
+            if (Math.abs(distanceToTravelX) > thresholdDistance) {
+                correctionX = 0.50 * speeds.getClosest(Math.abs(toTravelT.getX() / distanceToTravelX));
+                if (toTravelT.getX() < 0.0) {
+                    correctionX *= -1.0;
+                }
+            } else {
+                correctionX = 0.0;
+            }
+            if (Math.abs(distanceToTravelY) > thresholdDistance) {
+                correctionY = 0.3 * speeds.getClosest(Math.abs(toTravelT.getY() / distanceToTravelY));
+                if (toTravelT.getY() < 0.0) {
+                    correctionY *= -1.0;
+                }
+            } else {
+                correctionY = 0.0;
+            }
+               if (Math.abs(toTravelR.getRadians()) > angleThreshold) {
+                correctionH = 0.25; // 0.8 * toTravelR.getRadians();
+                if (toTravelR.getRadians() < 0.0) {
+                    correctionH *= -1.0;
+                }
+                //correctionH = 0.001*toTravelR.getDegrees();
+            } else {
+                correctionH = 0.0;
+            }
+
+            correctionX = Range.clip(correctionX, -1.0, 1.0);
+            correctionY = Range.clip(correctionY, -1.0, 1.0);
+            correctionH = Range.clip(correctionH, -1.0, 1.0);
+
+            Log.i("FTC18 driveByOtos[loop]", String.format("driveRobotFC(%f,%f,%f)", -correctionX, -correctionY, correctionH));
+            driveRobotFC(-correctionY, -correctionX, correctionH);
+
+            pos = myOtos.getPosition();
+            currentT = new Translation2d(pos.x, pos.y);
+            currentR = Rotation2d.fromDegrees(pos.h);
+            current = new Pose2d(currentT, currentR);
+
+            toTravelT = target.getTranslation().minus(current.getTranslation());
+            toTravelR = target.getRotation().minus(current.getRotation());
+            toTravelD = current.getTranslation().getDistance(target.getTranslation());
+
+             Log.i("FTC18 driveByOtos[loop]", "current = " + current.toString());
+            Log.i("FTC18 driveByOtos[loop]", "toTravelT = " + toTravelT.toString());
+            Log.i("FTC18 driveByOtos[loop]", "toTravelR = " + toTravelR.toString());
+            Log.i("FTC18 driveByOtos[loop]", String.format("toTravelD = %f", toTravelD));
+
+            // Update telemetry
+            myOpMode.telemetry.addData("Target Axial/Lateral/Yaw", "%5.2f / %5.2f / %5.2f", pos.x, pos.y, pos.h);
+            myOpMode.telemetry.addData("toTravelR", "%5.2f", toTravelR.getDegrees());
+            myOpMode.telemetry.update();
+
+            myOpMode.sleep(20);
+        }
+        stop();
+        myOpMode.sleep(200);
+        Log.i("FTC18 driveByOtos[stop]", "========================= STOP  drivebyOtos  STOP =================================================");
+    }
+
+
+    public void driveByOtosNoRotation(double distanceToTravelX, double distanceToTravelY) {
+
+        SparkFunOTOS.Pose2D pos = myOtos.getPosition(); // Get position
+
+        Translation2d currentT = new Translation2d(pos.x, pos.y);
+        Pose2d current = new Pose2d(currentT, new Rotation2d());
+
+        Translation2d targetT = new Translation2d(distanceToTravelX, distanceToTravelY);
+        // target is relative to current
+        targetT = currentT.plus(targetT);
+        Pose2d target = new Pose2d(targetT, new Rotation2d());
+
+        Translation2d toTravelT = target.getTranslation().minus(current.getTranslation());
+        double toTravelD = current.getTranslation().getDistance(target.getTranslation());
+
+        Log.i("FTC18 driveByOtosNoRotation[start]", "========================= START driveByOtosNoRotation START =================================================");
+        Log.i("FTC18 driveByOtosNoRotation[init]", "current = " + current.toString());
+        Log.i("FTC18 driveByOtosNoRotation[init]", "target = " + target.toString());
+        Log.i("FTC18 driveByOtosNoRotation[init]", "toTravelT = " + toTravelT.toString());
+        Log.i("FTC18 driveByOtosNoRotation[init]", String.format("toTravelD = %f", toTravelD));
+
+        double thresholdDistance = 1.0; // Distance threshold for stopping (x and y)
+
+        // Variables for loop (as to not define the variables inside the loop)
+        double correctionX;
+        double correctionY;
+
+        LUT<Double, Double> speeds = new LUT<Double, Double>() {{
+            add(1.0, 1.0);
+            add(0.8, 0.9);
+            add(0.6, 0.8);
+            add(0.4, 0.7);
+            add(0.2, 0.5);
+            add(.10, 0.3);
+            add(0.0000005, 0.15);
+            add(0.0, 0.0);
+        }};
+
+        // Loop to see where we are and need to go
+        while (myOpMode.opModeIsActive() && (Math.abs(toTravelT.getX()) > thresholdDistance || Math.abs(toTravelT.getY()) > thresholdDistance)) {
+            if (Math.abs(distanceToTravelX) > thresholdDistance) {
+                correctionX = 0.50 * speeds.getClosest(Math.abs(toTravelT.getX() / distanceToTravelX));
+                if (toTravelT.getX() < 0.0) {
+                    correctionX *= -1.0;
+                }
+            } else {
+                correctionX = 0.0;
+            }
+            if (Math.abs(distanceToTravelY) > thresholdDistance) {
+                correctionY = 0.3 * speeds.getClosest(Math.abs(toTravelT.getY() / distanceToTravelY));
+                if (toTravelT.getY() < 0.0) {
+                    correctionY *= -1.0;
+                }
+            } else {
+                correctionY = 0.0;
+            }
+
+            correctionX = Range.clip(correctionX, -1.0, 1.0);
+            correctionY = Range.clip(correctionY, -1.0, 1.0);
+
+            Log.i("FTC18 driveByOtosNoRotation[loop]", String.format("driveRobotFC(%f,%f,0.0)", -correctionX, -correctionY));
+            driveRobotFC(-correctionY, -correctionX, 0.0);
+
+            pos = myOtos.getPosition();
+            currentT = new Translation2d(pos.x, pos.y);
+            current = new Pose2d(currentT, new Rotation2d());
+
+            toTravelT = target.getTranslation().minus(current.getTranslation());
+            toTravelD = current.getTranslation().getDistance(target.getTranslation());
+
+            Log.i("FTC18 driveByOtosNoRotation[loop]", "current = " + current.toString());
+            Log.i("FTC18 driveByOtosNoRotation[loop]", "toTravelT = " + toTravelT.toString());
+            Log.i("FTC18 driveByOtosNoRotation[loop]", String.format("toTravelD = %f", toTravelD));
+
+            // Update telemetry
+            myOpMode.telemetry.addData("Target Axial/Lateral", "%5.2f / %5.2f", pos.x, pos.y);
+            myOpMode.telemetry.update();
+
+            myOpMode.sleep(15);
+        }
+        stop();
+        myOpMode.sleep(111);
+        Log.i("FTC18 driveByOtosNoRotation[stop]", "========================= STOP driveByOtosNoRotation STOP =================================================");
+    }
+
+
+    public void driveWithOtos() {
+        SparkFunOTOS.Pose2D pos = myOtos.getPosition(); // Get position
+
+        myOpMode.telemetry.addData("X coordinate", pos.x); // Log the position to the telemetry
+        myOpMode.telemetry.addData("Y coordinate", pos.y);
+        myOpMode.telemetry.addData("Heading angle", pos.h);
+
+        //myOpMode.telemetry.update();  Update the telemetry on the driver station
+    }
     //Goes straight by encoder (takes distance)
     public void straightByEncoder(double speed, double distance, double timeout) {
         int newLeftFrontTarget;
@@ -203,7 +459,7 @@ public class Hardware2025 {
                 myOpMode.telemetry.addData("Running to", " lf:%7d lb:%7d rf:%7d rb:%7d", newLeftFrontTarget, newLeftBackTarget, newRightFrontTarget, newRightBackTarget);
                 myOpMode.telemetry.addData("Currently at", " at lf:%7d lb:%7d rf:%7d rb:%7d",
                         leftFrontDrive.getCurrentPosition(), leftBackDrive.getCurrentPosition(), rightFrontDrive.getCurrentPosition(), rightBackDrive.getCurrentPosition());
-                myOpMode.telemetry.update();
+                //myOpMode.telemetry.update();
             }
 
             stop();
@@ -252,7 +508,7 @@ public class Hardware2025 {
                 myOpMode.telemetry.addData("Running to", " lf:%7d lb:%7d rf:%7d rb:%7d", newLeftFrontTarget, newLeftBackTarget, newRightFrontTarget, newRightBackTarget);
                 myOpMode.telemetry.addData("Currently at", " at lf:%7d lb:%7d rf:%7d rb:%7d",
                         leftFrontDrive.getCurrentPosition(), leftBackDrive.getCurrentPosition(), rightFrontDrive.getCurrentPosition(), rightBackDrive.getCurrentPosition());
-                myOpMode.telemetry.update();
+                //myOpMode.telemetry.update();
             }
 
             stop();
@@ -273,7 +529,6 @@ public class Hardware2025 {
         strafeByEncoder(speed, strafeDistance, timeout);
     }
 
-
     //Drives for a set amount of time (takes time)
     public void driveTimed(double axial, double lateral, double yaw, double time) {
         setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -281,7 +536,7 @@ public class Hardware2025 {
         runtime.reset();
         while (myOpMode.opModeIsActive() && (runtime.seconds() < time)) {
             myOpMode.telemetry.addData("Path", "Leg 1: %4.1f S Elapsed", runtime.seconds());
-            myOpMode.telemetry.update();
+            //myOpMode.telemetry.update();
         }
         stop();
     }
@@ -353,6 +608,8 @@ public class Hardware2025 {
         double backLeftPower = (rotY - rotX + rx) / denominator;
         double frontRightPower = (rotY - rotX - rx) / denominator;
         double backRightPower = (rotY + rotX - rx) / denominator;
+        Log.i("FTC18 driveRobotFC", String.format("fl=%f fr=%f", frontLeftPower, frontRightPower));
+        Log.i("FTC18 driveRobotFC", String.format("bl=%f br=%f", backLeftPower, backRightPower));
         leftFrontDrive.setPower(frontLeftPower);
         leftBackDrive.setPower(backLeftPower);
         rightFrontDrive.setPower(frontRightPower);
@@ -380,19 +637,6 @@ public class Hardware2025 {
         imu.resetYaw();
     }
 
-    public double getSteeringCorrection(double desiredHeading, double proportionalGain) {
-        targetHeading = desiredHeading;  // Save for telemetry
-        // Get the robot heading by applying an offset to the IMU heading
-        robotHeading = getRawHeading() - headingOffset;
-        // Determine the heading current error
-        headingError = targetHeading - robotHeading;
-        // Normalize the error to be within +/- 180 degrees
-        while (headingError > 180) headingError -= 360;
-        while (headingError <= -180) headingError += 360;
-        // Multiply the error by the gain to determine the required steering correction/  Limit the result to +/- 1.0
-        return Range.clip(headingError * proportionalGain, -1, 1);
-    }
-
     public void turnToHeading(double maxTurnSpeed, double heading) {
         getSteeringCorrection(heading, P_DRIVE_GAIN);
         while (myOpMode.opModeIsActive() && (Math.abs(headingError) > HEADING_THRESHOLD)) {
@@ -407,9 +651,126 @@ public class Hardware2025 {
         stop();
     }
 
+    public double getSteeringCorrection(double desiredHeading, double proportionalGain) {
+        targetHeading = desiredHeading;  // Save for telemetry
+        // Get the robot heading by applying an offset to the IMU heading
+        robotHeading = getRawHeading() - headingOffset;
+        // Determine the heading current error
+        headingError = targetHeading - robotHeading;
+        // Normalize the error to be within +/- 180 degrees
+        while (headingError > 180) headingError -= 360;
+        while (headingError <= -180) headingError += 360;
+        // Multiply the error by the gain to determine the required steering correction/  Limit the result to +/- 1.0
+        return Range.clip(headingError * proportionalGain, -1, 1);
+    }
+
+    //figure out degrees v radians stuff also this assumes strafe efficency of 100% sooo prob need to tweak this
+    public void driveWhileTurn(double targetAxial, double targetLateral, double targetYaw) {
+
+        double initialHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES); // Starting angle relative to robot
+        double angleToTravelW = initialHeading - targetYaw; //initialize angle target (changed to add subtraction)
+        double distanceToTravelX = targetLateral; //initialize lateral target
+        double distanceToTravelY = targetAxial; //initialize axial target
+        double distanceTraveledX = 0.0; // accumulated distance
+        double distanceTraveledY = 0.0; // accumulated distance
+
+        double leftFrontTicks = leftFrontDrive.getCurrentPosition(); //Capturing the current motor ticks
+        double rightFrontTicks = rightFrontDrive.getCurrentPosition();
+        double leftBackTicks = leftBackDrive.getCurrentPosition();
+        double rightBackTicks = rightBackDrive.getCurrentPosition();
+
+        double thresholdDistance = 1.0; // Distance threshold for stopping (double will rarely ever reach zero)
+        double angleThreshold = 5.0; //Angle threshold for stopping (double will rarely ever reach zero)
+
+        double kX = 0.05; // Proportional gain value for X (may need to be greater)
+        double kY = 0.05; // Proportional gain value for Y (may need to be greater)
+        double maxSpeed = .25; // Max robot speed
+
+        //Variables for loop (as to not define the variables inside the loop)
+        double correctionW;
+        double correctionX;
+        double correctionY;
+        double adjustedAxial;
+        double adjustedLateral;
+        double adjustedYaw;
+        double max;
+        double botHeading;
+        double distancedTraveledParallelCurrent;
+        double distancedTraveledParallelOld;
+        double inchesTraveledParallel;
+        double distanceTraveledPerpendicularCurrent;
+        double distanceTraveledPerpendicularOld;
+        double inchesTraveledPerpendicular;
+
+        //Loop to see where we are and need to go
+        while (myOpMode.opModeIsActive() && (Math.abs(distanceToTravelX) > thresholdDistance || Math.abs(distanceToTravelY) > thresholdDistance || Math.abs(angleToTravelW) > angleThreshold)) {
+            //Todo: may need to fuss with the () in the X and Y for casting and dividing purposes
+            correctionW = getSteeringCorrection(angleToTravelW, P_TURN_GAIN); //W needed to turn (pass into FC function)
+            correctionX = (distanceToTravelX - distanceTraveledX) * kX; //X distance needed to go (pass into FC function)
+            correctionY = (distanceToTravelY - distanceTraveledY) * kY; //Y distance needed to go (pass into FC function)
+
+//todo: look for angles and radians
+            //todo: pick the equation thing out of the three
+
+            max = Math.max(Math.abs(correctionY), Math.abs(correctionX));
+            if (max > maxSpeed) { //ensure that the robot does not go past its max and wheels are turning at same rate
+                correctionY /= max;
+                correctionX /= max;
+            }
+
+            driveRobotFC(correctionY, correctionX, correctionW); //Pass values to the FC function
+            Log.i("driveWhileTurn", String.format("adjustedAxial = %f, correctionX = %f, correctionW = %f", correctionY, correctionX, correctionW));
+            // Now we need to calculate distance traveled based on our current angle
+            // This duplicates the trigonometry already done in driveRobotFC
+            // todo: combine odometry into driverobotFC to elimiate redundancy
+
+            //trying only looking at one motor (left frount)
+            botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS); // May need to fuss with radians and degrees
+            Log.i("driveWhileTurn", String.format("botHeading = %f", botHeading));
+
+            // Rotate the movement direction counter to the bot's rotation
+            distancedTraveledParallelCurrent = leftFrontDrive.getCurrentPosition() + rightFrontDrive.getCurrentPosition() + leftBackDrive.getCurrentPosition() + rightBackDrive.getCurrentPosition() + leftFrontDrive.getCurrentPosition();
+
+            //distancedTraveledParallelOld = leftFrontTicks + rightFrontTicks + leftBackTicks + rightBackTicks;
+            distancedTraveledParallelOld = leftFrontTicks;
+
+            //inchesTraveledParallel = ((distancedTraveledParallelCurrent - distancedTraveledParallelOld) /4.0 /COUNTS_PER_INCH);
+            inchesTraveledParallel = ((distancedTraveledParallelCurrent - distancedTraveledParallelOld) / COUNTS_PER_INCH);
+
+            distanceTraveledPerpendicularCurrent = (leftFrontDrive.getCurrentPosition() + rightFrontDrive.getCurrentPosition()) - (rightBackDrive.getCurrentPosition() - leftBackDrive.getCurrentPosition());
+            distanceTraveledPerpendicularOld = (leftFrontTicks + rightFrontTicks) - (rightBackTicks - leftBackTicks);
+            inchesTraveledPerpendicular = ((distanceTraveledPerpendicularCurrent - distanceTraveledPerpendicularOld) / 4.0 / COUNTS_PER_INCH);
+            Log.i("driveWhileTurn", String.format("inchesTraveledPerpendicular = %f, inchesTraveledParallel = %f", inchesTraveledPerpendicular, inchesTraveledParallel));
+
+            //converting into new reference frame- the signs here may need to be adjusted
+            distanceTraveledX += inchesTraveledParallel * Math.cos(-botHeading) + inchesTraveledPerpendicular * Math.sin(-botHeading);
+            distanceTraveledY += inchesTraveledParallel * Math.sin(-botHeading) - inchesTraveledPerpendicular * Math.cos(-botHeading);
+
+           distanceTraveledX += inchesTraveledParallel * Math.cos(-botHeading) - inchesTraveledPerpendicular * Math.sin(-botHeading);
+           distanceTraveledY += inchesTraveledParallel * Math.sin(-botHeading) + inchesTraveledPerpendicular * Math.cos(-botHeading);
+            Log.i("driveWhileTurn", String.format("distanceTraveledX = %f, distanceTraveledY = %f", distanceTraveledX, distanceTraveledY));
+
+            //added to modify distance to travel x
+            distanceToTravelX = distanceToTravelX - distanceTraveledX;
+            distanceToTravelY = distanceToTravelY - distanceTraveledY;
+            Log.i("driveWhileTurn", String.format(" distanceToTravelX= %f, distanceToTravelY = %f", distanceToTravelX, distanceToTravelY));
+
+            //Resseting old ticks to current ticks so next time through the loop its current
+            leftFrontTicks = leftFrontDrive.getCurrentPosition();
+            rightFrontTicks = rightFrontDrive.getCurrentPosition();
+            leftBackTicks = leftBackDrive.getCurrentPosition();
+            rightBackTicks = rightBackDrive.getCurrentPosition();
+
+            // Update telemetry
+            myOpMode.telemetry.addData("Target Axial/Lateral/Yaw", "%5.2f / %5.2f / %5.2f", targetAxial, targetLateral, targetYaw);
+            myOpMode.telemetry.addData("Remaining Axial/Lateral/Yaw", "%5.2f / %5.2f / %5.2f", distanceToTravelY - distanceTraveledY, distanceToTravelX - distanceTraveledX, headingError);
+            myOpMode.telemetry.update();
+        }
+        stop();
+    }
+
     public void stop() {
         driveRobot(0, 0, 0);
-        //    slide(0);
     }
 
     public void straight(double power) {
@@ -420,13 +781,6 @@ public class Hardware2025 {
         driveTimed(power, 0, 0, time);
     }
 
-//    public void startSlide() {
-//        moveSlide(0.3);
-//        if (magneticSensorWall.isPressed()) {
-//            slide.setPower(0.0);
-//            moveSlide(0.0);
-//        }
-//    }
 
     // Claw stuff
     public void openClaw() {
@@ -495,17 +849,37 @@ public class Hardware2025 {
         return sampleColor.NONE;
     }
 
+    public int getLeftPosition(){
+        return leftSlide.getCurrentPosition();
+    }
+
+    public int getRightPosition(){
+        return rightSlide.getCurrentPosition();
+    }
+
     public void relativeSlideByEncoder(double speed, double distance, double timeout) {
         // Determine new target position, and pass to motor controller
         slideTimeout = timeout;
-        slideTarget = leftSlide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
-        leftSlide.setTargetPosition(slideTarget);
-        rightSlide.setTargetPosition(slideTarget);
+        leftSlideTarget = leftSlide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
+        rightSlideTarget = rightSlide.getCurrentPosition() + (int) (distance * COUNTS_PER_INCH_SLIDE);
+        leftSlide.setTargetPosition(leftSlideTarget);
+        rightSlide.setTargetPosition(rightSlideTarget);
         leftSlide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         rightSlide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         runtime.reset();
         leftSlide.setPower(Math.abs(speed));
         rightSlide.setPower(Math.abs(speed));
+
+        while (myOpMode.opModeIsActive() && runtime.seconds() < timeout &&
+                (leftSlide.isBusy() && rightSlide.isBusy())) {
+            // Telemetry output to show encoder positions and target positions
+            myOpMode.telemetry.addData("Left Encoder", leftSlide.getCurrentPosition());
+            myOpMode.telemetry.addData("Right Encoder", rightSlide.getCurrentPosition());
+            myOpMode.telemetry.addData("Left Target", slideTarget);
+            myOpMode.telemetry.addData("Right Target", slideTarget);
+            myOpMode.telemetry.addData("Time Elapsed", runtime.seconds());
+            myOpMode.telemetry.update();
+        }
     }
 
     public void startSlideByEncoder(double speed, double position, double timeout) {
@@ -518,22 +892,55 @@ public class Hardware2025 {
         rightSlide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         runtime.reset();
         leftSlide.setPower(Math.abs(speed));
+        rightSlide.setPower(Math.abs(speed));
+        myOpMode.sleep(200);
+        Log.i("FTC18 startSlideByEncoder", String.format("speed = %f, position = %f, timeout = %f", speed, position, timeout));
+    }
+
+    public void waitForSlide(double speed, double position, double timeout) {
+        startSlideByEncoder(speed, position, timeout);
+        while (!isSlideDone()){
+        }
     }
 
     public boolean isSlideDone() {
-
-        if ((runtime.seconds() < slideTimeout) && (leftSlide.isBusy())) {
+        if ((runtime.seconds() < slideTimeout) && (leftSlide.isBusy() && (rightSlide.isBusy()))) {
 
             // Display it for the driver.
             myOpMode.telemetry.addData("Running to", " st:%7d ", slideTarget);
             myOpMode.telemetry.addData("Currently at", " at st:%7d", leftSlide.getCurrentPosition());
             myOpMode.telemetry.update();
+            Log.i("FTC18 isSlideDone", "is not done");
+            myOpMode.sleep(200);
             return false;
 
         } else {
             stopSlideEncoder();
+            Log.i("FTC18 isSlideDone", "is done");
             return true;
         }
+    }
+
+    //checks whether the slide is going in the right direction
+    public boolean slideBelowZero(){
+        if (magneticSensor.isPressed()) {
+
+            if (getSlidePower() < 0.0) {
+                stopSlideEncoder();
+                resetSlideEncoder();
+                //gives drivers a warning about the slide
+                myOpMode.telemetry.addData("Warning", "Check Slide");
+            }
+            return true;
+        }else return false;
+    }
+
+    public boolean slideWasReset() {
+        if (getSlideCurrent() == SlidePosition.ZERO){
+            resetSlideEncoder();
+            myOpMode.telemetry.addData("Silde", "was reset");
+            return true;
+        } else return false;
     }
 
     public void stopSlideEncoder() {
@@ -541,6 +948,14 @@ public class Hardware2025 {
         rightSlide.setPower(0.01);
         leftSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rightSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
+
+    public void goToZeroPosition(){
+        leftSlide.setPower(0.3);
+        rightSlide.setPower(0.3);
+        if (magneticSensor.isPressed()){
+            resetSlideEncoder();
+        }
     }
 
     public boolean isLeftSlideBusy() {
@@ -552,19 +967,26 @@ public class Hardware2025 {
     }
 
     public boolean isSlideBusy() {
-        isRightSlideBusy();
-        isLeftSlideBusy();
-        return true;
+        return isRightSlideBusy() && isLeftSlideBusy();
     }
 
     public SlidePosition getSlideCurrent() {
-        if (magneticSensorWall.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at wall");
-            return SlidePosition.WALL;
-        } else myOpMode.telemetry.addData("linearSlide", "Is not at wall");
+        if (magneticSensor.isPressed()) {
+            myOpMode.telemetry.addData("LinearSlide", "Is at zero");
+            return SlidePosition.ZERO;
+        } else myOpMode.telemetry.addData("linearSlide", "Is not at zero");
 
         return null;
     }
+
+    public void resetSlideEncoder() {
+        leftSlide.setPower(0.0);
+        rightSlide.setPower(0.0);
+        leftSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+    }
+
     public double getSlidePower() {
         return leftSlide.getPower();
     }
@@ -577,6 +999,13 @@ public class Hardware2025 {
         arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         runtime.reset();
         arm.setPower(Math.abs(speed));
+    }
+
+    public void holdArmEncoder() {
+        //We may not need the encoder lines- it may be sufficent to just hold the power at a very low value
+        arm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        armTarget = arm.getCurrentPosition();
+        arm.setTargetPosition(armTarget);
     }
 
     //auto methods!
@@ -610,140 +1039,47 @@ public class Hardware2025 {
         strafeByEncoder(1, -23, 15);
     }
 
-/* Code for next qualifier
-       if (magneticSensorLow.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at low");
-            return SlidePosition.LOW;
+
+    double distanceFromBar;
+    public double getDistanceFromBar() {
+        distanceFromBar = sensorDistance.getDistance(DistanceUnit.CM);
+        return distanceFromBar;
+    }
+
+    public void scoreOnHighBar(){
+        straight(10.0);
+        if (getDistanceFromBar() < ROBOT_AT_BAR){
+            stopRobot();
         }
+        startSlideByEncoder(.5, HIGH_POSITION, 10);
 
-        if (magneticSensorHigh.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at high");
-            return SlidePosition.HIGH;
+       straight(1.0);
+        if (getDistanceFromBar() < SCORING_POSITION){
+           stopRobot();
         }
+        startSlideByEncoder(.5, -4.5, 10);
+        openClaw();
+        straight(-5.0);
 
-           if (magneticSensorStart.isPressed()) {
-            myOpMode.telemetry.addData("LinearSlide", "Is at start");
-            return SlidePosition.START;
+
+
+
+    }
+
+    public void hang(){
+        startSlideByEncoder(1, 10, 20);
+        while ((getDistanceFromBar() > HANG_POSITION) && myOpMode.opModeIsActive()){
+            straight(-.25);
         }
+        startSlideByEncoder(1, 0, 10);
+    }
 
-   public void runSlide() {
-
-       if (slideTargetPosition == SlidePosition.START) {
-
-           double power = 0.0;
-
-           switch (getSlideCurrent()) {
-               case HIGH:
-               case LOW:
-               case WALL:
-
-                   power = -0.5;
-                   break;
-
-               case NONE:
-                   break;
-           }
-           moveSlide(power);
-
-           if (getSlidePower() > 0.0) {
-               switch (slideTargetPosition) {
-                   case START:
-                       if (magneticSensorStart.isPressed()) {
-                           moveSlide(0.0);
-                           slideCurrentPosition = Hardware2025.SlidePosition.START;
-                       }}
-               if (getSlidePower() < 0.0) {
-
-                   switch (slideTargetPosition) {
-                       case START:
-                           if (magneticSensorStart.isPressed()) {
-                               moveSlide(0.0);
-                               slideCurrentPosition = Hardware2025.SlidePosition.START; } } } }}
-
-        if (slideTargetPosition == SlidePosition.WALL) {
-           //go to Wall position
-           double power = 0.0;
-           slideTargetPosition = Hardware2025.SlidePosition.WALL;
-           switch (getSlideCurrent()) {
-               case HIGH:
-               case LOW:
-                   power = -0.5;
-                   break;
-
-               case START:
-                   power = 0.5;
-                   break;
-               case NONE:
-                   break;
-           }
-           moveSlide(power);
-
-           if (getSlidePower() > 0.0) {
-               switch (slideTargetPosition) {
-                   case WALL:
-                       if (magneticSensorWall.isPressed()) {
-                           moveSlide(0.0); }}
-               if (getSlidePower() < 0.0) {
-                   switch (slideTargetPosition) {
-                       case WALL:
-                           if (magneticSensorWall.isPressed()) {
-                               moveSlide(0.0); }}}}}
-       if (slideTargetPosition == SlidePosition.LOW) {
-           //go to Low Bar position
-           double power = 0.0;
-           slideTargetPosition = Hardware2025.SlidePosition.LOW;
-           switch (getSlideCurrent()) {
-               case HIGH:
-                   power = -0.5;
-                   break;
-
-               case START:
-               case WALL:
-                   power = 0.5;
-                   break;
-               case NONE:
-                   break;
-           }
-           moveSlide(power);
-
-           if (getSlidePower() > 0.0) {
-               switch (slideTargetPosition) {
-                   case LOW:
-                       if (magneticSensorLow.isPressed()) {
-                           moveSlide(0.0);
-                       }}
-               if (getSlidePower() < 0.0) {
-                   switch (slideTargetPosition) {
-                       case LOW:
-                           if (magneticSensorLow.isPressed()) {
-                               moveSlide(0.0);
-                           }} }}}
-
-       if (slideTargetPosition == SlidePosition.HIGH) {
-           //go to Low Bar position
-           double power = 0.0;
-           slideTargetPosition = Hardware2025.SlidePosition.HIGH;
-           switch (getSlideCurrent()) {
-               case LOW:
-               case START:
-               case WALL:
-                   power = 0.5;
-                   break;
-               case NONE:
-                   break;}
-           moveSlide(power);
-           if (getSlidePower() > 0.0) {
-               switch (slideTargetPosition) {
-                   case HIGH:
-                       if (magneticSensorHigh.isPressed()) {
-                           moveSlide(0.0);
-                       }}
-               if (getSlidePower() < 0.0) {
-                   switch (slideTargetPosition) {
-                       case HIGH:
-                           if (magneticSensorHigh.isPressed()) {
-                               moveSlide(0.0); } } } } }}
-*/
+    public void stopRobot(){
+        leftFrontDrive.setPower(0.01);
+        leftBackDrive.setPower(0.01);
+        rightFrontDrive.setPower(0.01);
+        rightBackDrive.setPower(0.01);
+    }
 }
 
 
