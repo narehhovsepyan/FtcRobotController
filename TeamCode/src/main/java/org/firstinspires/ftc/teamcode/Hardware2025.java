@@ -34,8 +34,8 @@ public class Hardware2025 {
     private DcMotor leftBackDrive = null;
     private DcMotor rightFrontDrive = null;
     private DcMotor rightBackDrive = null;
-    private DcMotor leftSlide = null;
-    private DcMotor rightSlide = null;
+    public DcMotor leftSlide = null;
+    public DcMotor rightSlide = null;
     private DcMotor arm = null;
 
     // Define IMU object and headings (Make it private so it can't be accessed externally)
@@ -91,8 +91,8 @@ public class Hardware2025 {
     static final double HEADING_THRESHOLD = 5.0;
     static final double OPEN_SERVO_CLAW = 0.2;
     static final double CLOSE_SERVO_CLAW = 0.03;
-    private static final double BEAK_OPEN = 0.5;
-    private static final double BEAK_CLOSE = .6;
+    private static final double BEAK_OPEN = 0.38;
+    private static final double BEAK_CLOSE = .56;
     private int slideTarget;
     private int rightSlideTarget;
     private int leftSlideTarget;
@@ -132,7 +132,7 @@ public class Hardware2025 {
         arm = myOpMode.hardwareMap.get(DcMotor.class, "arm");
 
         myOtos = myOpMode.hardwareMap.get(SparkFunOTOS.class, "sensor_otos"); //Otos sensor
-        configureOtos();
+        //configureOtos();
 
         // Define and Initialize sensors
         colorSensor = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color");
@@ -153,8 +153,8 @@ public class Hardware2025 {
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-        leftSlide.setDirection(DcMotor.Direction.REVERSE);
-        rightSlide.setDirection(DcMotor.Direction.FORWARD);
+        leftSlide.setDirection(DcMotor.Direction.FORWARD);
+        rightSlide.setDirection(DcMotor.Direction.REVERSE);
         leftSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         leftSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -179,7 +179,7 @@ public class Hardware2025 {
     // end method initTfod()
 
     //Configuring the otos sensor- for more detailed comments, refer to the SensorSparkFunOTOS.java file
-    private void configureOtos() {
+    public void configureOtos() {
         myOpMode.telemetry.addLine("Configuring OTOS...");
         myOpMode.telemetry.update();
 
@@ -244,7 +244,7 @@ public class Hardware2025 {
 
 
         double thresholdDistance = 1.0; // Distance threshold for stopping (x and y)
-        double angleThreshold = 0.1; //Angle threshold for stopping (radians)
+        double angleThreshold = 0.15; //Angle threshold for stopping (radians)
 
         //Variables for loop (as to not define the variables inside the loop)
         double correctionX;
@@ -804,6 +804,16 @@ public class Hardware2025 {
         arm.setPower(power);
     }
 
+    public void armAuto(double power, double time) {
+        arm.setPower(power);
+        runtime.reset();
+        while (myOpMode.opModeIsActive() && (runtime.seconds() < time)) {
+            myOpMode.telemetry.addData("Path", "Leg 1: %4.1f S Elapsed", runtime.seconds());
+            myOpMode.telemetry.update();
+        }
+        arm.setPower(0.0);
+    }
+
 
     public void moveLeftSlide(double power) {
         leftSlide.setPower(power);
@@ -869,17 +879,6 @@ public class Hardware2025 {
         runtime.reset();
         leftSlide.setPower(Math.abs(speed));
         rightSlide.setPower(Math.abs(speed));
-
-        while (myOpMode.opModeIsActive() && runtime.seconds() < timeout &&
-                (leftSlide.isBusy() && rightSlide.isBusy())) {
-            // Telemetry output to show encoder positions and target positions
-            myOpMode.telemetry.addData("Left Encoder", leftSlide.getCurrentPosition());
-            myOpMode.telemetry.addData("Right Encoder", rightSlide.getCurrentPosition());
-            myOpMode.telemetry.addData("Left Target", slideTarget);
-            myOpMode.telemetry.addData("Right Target", slideTarget);
-            myOpMode.telemetry.addData("Time Elapsed", runtime.seconds());
-            myOpMode.telemetry.update();
-        }
     }
 
     public void startSlideByEncoder(double speed, double position, double timeout) {
@@ -893,8 +892,6 @@ public class Hardware2025 {
         runtime.reset();
         leftSlide.setPower(Math.abs(speed));
         rightSlide.setPower(Math.abs(speed));
-        myOpMode.sleep(200);
-        Log.i("FTC18 startSlideByEncoder", String.format("speed = %f, position = %f, timeout = %f", speed, position, timeout));
     }
 
     public void waitForSlide(double speed, double position, double timeout) {
@@ -980,11 +977,17 @@ public class Hardware2025 {
     }
 
     public void resetSlideEncoder() {
+
+        leftSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        while(magneticSensor.isPressed()) {
+            leftSlide.setPower(1);
+            rightSlide.setPower(1);
+        }
         leftSlide.setPower(0.0);
         rightSlide.setPower(0.0);
         leftSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightSlide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
     }
 
     public double getSlidePower() {
@@ -1006,6 +1009,10 @@ public class Hardware2025 {
         arm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         armTarget = arm.getCurrentPosition();
         arm.setTargetPosition(armTarget);
+    }
+
+    public void stopArm() {
+        arm.setPower(0.0);
     }
 
     //auto methods!
@@ -1047,22 +1054,42 @@ public class Hardware2025 {
     }
 
     public void scoreOnHighBar(){
-        straight(10.0);
-        if (getDistanceFromBar() < ROBOT_AT_BAR){
-            stopRobot();
-        }
-        startSlideByEncoder(.5, HIGH_POSITION, 10);
 
-       straight(1.0);
+        startSlideByEncoder(1, 25.3, 30);
+
+        while ((getDistanceFromBar() >= ROBOT_AT_BAR) && (myOpMode.opModeIsActive())) {
+            straight(.5);
         if (getDistanceFromBar() < SCORING_POSITION){
            stopRobot();
         }
-        startSlideByEncoder(.5, -4.5, 10);
+        startSlideByEncoder(1,18,10);
+        waitForSlide(.5, 18, 10);
         openClaw();
-        straight(-5.0);
+        straightByEncoder(1,-5,10);
+    }}
 
+    public void goToDistance(double distanceToGo) {
 
+        if (distanceToGo < getDistanceFromBar()) {
+            while (distanceToGo <= (.8 * getDistanceFromBar())) {
+                straight(-.8);
+            }
 
+            while (distanceToGo < (getDistanceFromBar())) {
+                straight(-.5);
+            }
+        }
+
+        else if (distanceToGo > getDistanceFromBar()) {
+            while (distanceToGo > (.8 * getDistanceFromBar())) {
+                straight(.8);
+            }
+
+            while (distanceToGo > (getDistanceFromBar())) {
+                straight(.5);
+            }
+        }
+        stopRobot();
 
     }
 

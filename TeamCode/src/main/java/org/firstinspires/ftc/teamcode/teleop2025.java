@@ -30,6 +30,7 @@
 package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -49,6 +50,7 @@ public class teleop2025 extends LinearOpMode {
     // Robot class
     public void runOpMode() {
         robot.init();
+        robot.closeClaw();
 
         //robot.startSlide();
 
@@ -70,6 +72,7 @@ public class teleop2025 extends LinearOpMode {
                 robot.resetSlideEncoder();
             }
 
+
             //For telemetry
             robot.getColor();
             robot.getSlideCurrent();
@@ -80,7 +83,10 @@ public class teleop2025 extends LinearOpMode {
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
 
-            if (!robot.isSlideBusy()){
+            if (Math.abs(-gamepad2.left_stick_y) > .05){
+                robot.leftSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                robot.rightSlide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
                 double slidePower = -gamepad2.left_stick_y;
                 double leftPower    = Range.clip(slidePower, -1.0, 1.0) ;
                 double rightPower   = Range.clip(slidePower, -1.0, 1.0) ;
@@ -88,6 +94,8 @@ public class teleop2025 extends LinearOpMode {
                 robot.moveLeftSlide(leftPower);
                 robot.moveRightSlide(rightPower);
             }
+
+
             //slow scale 1
             if (gamepad1.right_bumper) {
                 double slowScale = .25;
@@ -112,23 +120,23 @@ public class teleop2025 extends LinearOpMode {
 
             // Clip on to bar
             if (gamepad2.a) {
-                robot.relativeSlideByEncoder(1, -4.5, 10);
+                robot.relativeSlideByEncoder(1, -5.0, 10);
             }
 
             // Go to wall position
             if (gamepad2.b) {
-                robot.startSlideByEncoder(1, -1, 10);
+                robot.startSlideByEncoder(1, 0.0, 10);
             }
 
             // Go to low bar height
             if (gamepad2.x) {
-                robot.startSlideByEncoder(1, 10, 10);
+                robot.startSlideByEncoder(1, 8.2, 10);
             }
 
             // Go to high bar height
             if (gamepad2.y) {
                 if (!robot.isSlideBusy()) {
-                    robot.startSlideByEncoder(1, 26, 10);
+                    robot.startSlideByEncoder(1, 27, 10);
                 }
             }
             // Checks if the slide is where it should be
@@ -183,7 +191,7 @@ public class teleop2025 extends LinearOpMode {
             }
 
             if (gamepad2.back){
-                robot.hang();
+                robot.stopSlideEncoder();
             }
 
         }
