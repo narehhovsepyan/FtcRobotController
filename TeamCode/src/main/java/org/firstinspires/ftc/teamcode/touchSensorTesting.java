@@ -3,21 +3,25 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-@Autonomous(name = "autotesting")
+@Autonomous(name = "touchSensorTesting")
 //@Disabled
-public class autotesting extends LinearOpMode {
+public class touchSensorTesting extends LinearOpMode {
 
     Hardware2025 robot = new Hardware2025(this);
 
     public void runOpMode() {
         robot.init();
-        robot.configureOtos();
+
         waitForStart();
         telemetry.update();
-        robot.driveByOtos(0,53,0,10);
-        //robot.driveByOtos(55,0,0,5);
-        //robot.driveByOtos(3,0,0,5);
-        //robot.driveByOtos(0,-43,0,5);
+        robot.resetYaw();
+
+        robot.startSlideByEncoder(1, 26, 30);
+        robot.driveByOtos(-20.0, 15, 0, 100);
+        robot.waitForSlide(1, 26, 30);
+
+        robot.driveUntilTouch(.2);
+        robot.waitForSlide(1, 18, 30);
 
     }
 }

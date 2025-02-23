@@ -27,12 +27,11 @@ public class autofar extends LinearOpMode {
 
         //Get to bar and bring slide up
         robot.startSlideByEncoder(1, 25.3,30);
-        robot.driveByOtos(-20.0,23,0);
+        robot.driveByOtos(-20.0,27,0,100);
         robot.waitForSlide(1, 25.3, 30);
 
         //score first specimen
         robot.straightByEncoder(.3, -4, 10);
-        robot.straightByEncoder(.5,1.2,4);//doesnt work
 
         robot.startSlideByEncoder(1, 17,30);
         robot.waitForSlide(1,17,30);
@@ -40,7 +39,7 @@ public class autofar extends LinearOpMode {
 
         //collect next sample
         robot.stopArm();
-        robot.driveByOtos(0,-7,0);
+        robot.driveByOtos(0,-7,0, 100);
         robot.startSlideByEncoder(1, 8.7,30);
         robot.strafeByEncoder(.8, -16.0, 30);
         robot.straightByEncoder(.5,-12.5,10);
@@ -69,7 +68,7 @@ public class autofar extends LinearOpMode {
 
         //Get to bar and bring slide up
         robot.startSlideByEncoder(1, 25.3,30);
-        robot.driveByOtos(-20.0,19,0);
+        robot.driveByOtos(-20.0,19,0, 100);
         robot.strafeByEncoder(.8,6,10);
         robot.waitForSlide(1, 25.3, 30);
 
