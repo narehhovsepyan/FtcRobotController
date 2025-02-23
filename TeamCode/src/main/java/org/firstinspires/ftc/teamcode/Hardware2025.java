@@ -90,7 +90,7 @@ public class Hardware2025 {
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
-    static final double OPEN_SERVO_CLAW = 0.2;
+    static final double OPEN_SERVO_CLAW = 0.15;
     static final double CLOSE_SERVO_CLAW = 0.03;
     private static final double BEAK_OPEN = 0.38;
     private static final double BEAK_CLOSE = .56;
@@ -151,7 +151,7 @@ public class Hardware2025 {
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
-        leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+        leftFrontDrive.setDirection(DcMotor.Direction.FORWARD);
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
@@ -233,11 +233,9 @@ public class Hardware2025 {
     public void driveByOtos(double distanceToTravelX, double distanceToTravelY, double targetHeadingDegrees, double timeout) {
         runtime.reset();
         //distanceToTravelX *= 0.32;
-        //distanceToTravelY *= 0.166;
+        distanceToTravelY *= 1.1;
         // Get initial position from OTOS sensor
         SparkFunOTOS.Pose2D pos = myOtos.getPosition();
-        SparkFunOTOS.Pose2D vel = myOtos.getVelocity();
-        SparkFunOTOS.Pose2D acc = myOtos.getAcceleration();
         Translation2d currentT = new Translation2d(pos.x, pos.y);
         Rotation2d currentR = Rotation2d.fromDegrees(pos.h);
         Pose2d current = new Pose2d(currentT, currentR);
@@ -258,8 +256,8 @@ public class Hardware2025 {
 
         // PID constants (tweak these as needed)
         //not sure if integeral works
-        double kP_X = 0.1, kI_X = 0, kD_X = 0.01;
-        double kP_Y = 0.1, kI_Y = 0, kD_Y = 0.01;
+        double kP_X = 0.1, kI_X = 0, kD_X = 0.03;
+        double kP_Y = 0.1, kI_Y = 0, kD_Y = 0.03;
         double kP_H = 0.45, kI_H = 0, kD_H = 0;
 
         // So the robot can overcome friction
@@ -278,11 +276,9 @@ public class Hardware2025 {
             if (loopDelay < 0.001) {
                 loopDelay = 0.04;  //to prevent it being so small there is a NaN error- maybe not needed now
             }
-            //pos = myOtos.getPosition();
+            pos = myOtos.getPosition();
 
-            myOtos.getPosVelAcc(pos,vel,acc);
-            Log.i("FTC18 driveByOtos", String.format("Velocity: %.2f, %.2f, %.2f", vel.x, vel.y, vel.h));
-            Log.i("FTC18 driveByOtos", String.format("Acceleration: %.2f, %.2f, %.2f", acc.x, acc.y, acc.h));
+
             currentT = new Translation2d(pos.x, pos.y);
             currentR = Rotation2d.fromDegrees(pos.h);
             current = new Pose2d(currentT, currentR);
@@ -293,7 +289,7 @@ public class Hardware2025 {
 
             // If within thresholds, exit the loop
             //if (toTravelAvg < thresholdDistance && toTravelD < thresholdDistance && Math.abs(toTravelR.getRadians()) < angleThreshold) {
-            if (toTravelPrevC < thresholdDistance && toTravelPrevB < thresholdDistance && toTravelPrevA < thresholdDistance && toTravelD< thresholdDistance && Math.abs(toTravelR.getRadians()) < angleThreshold) {
+            if (Math.abs(toTravelPrevC) < thresholdDistance && Math.abs(toTravelPrevB) < thresholdDistance && Math.abs(toTravelPrevA) < thresholdDistance && toTravelD < thresholdDistance && Math.abs(toTravelR.getRadians()) < angleThreshold) {
 
                     Log.i("FTC18 driveByOtos", String.format("Leaving loop - X: %.2f, Y: %.2f, H: %.2f", pos.x, pos.y, pos.h));
                     break;

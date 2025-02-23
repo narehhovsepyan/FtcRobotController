@@ -14,7 +14,7 @@ public class autotesting extends LinearOpMode {
         robot.configureOtos();
         waitForStart();
         telemetry.update();
-        robot.driveByOtos(0,53,0,10);
+        robot.driveByOtos(8,8,0,10);
         //robot.driveByOtos(55,0,0,5);
         //robot.driveByOtos(3,0,0,5);
         //robot.driveByOtos(0,-43,0,5);

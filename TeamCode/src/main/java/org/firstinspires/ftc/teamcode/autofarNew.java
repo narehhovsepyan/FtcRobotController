@@ -24,7 +24,7 @@ public class autofarNew extends LinearOpMode {
 
         //Get to bar and bring slide up
         robot.startSlideByEncoder(1, 26,30);
-        robot.driveByOtos(-20.0,15,0,100);
+        robot.driveByOtos(-20.0,29.35,0,100);
         robot.waitForSlide(1, 26, 30);
        // robot.goToDistance(robot.ROBOT_AT_BAR);
 
