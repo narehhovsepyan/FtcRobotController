@@ -111,7 +111,7 @@ public class teleop2025 extends LinearOpMode {
             }
 
             // Field centric
-            robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
+            robot.driveRobotFC(-gp1LY, gp1LX, -gp1RX);
 
             //ignore input or cancel (another method, kill slide/stop slide) currently running operation if second button pressed
             //go to the pickup height
@@ -133,7 +133,7 @@ public class teleop2025 extends LinearOpMode {
 
             // Go to high bar height
             if (gamepad2.y) {
-                robot.startSlideByEncoder(1, 27, 10);
+                robot.startSlideByEncoder(1, 28, 10);
             }
             // Checks if the slide is where it should be
             //robot.isSlideDone();
@@ -173,16 +173,19 @@ public class teleop2025 extends LinearOpMode {
             }
              **/
 
+            //go down
             if (gamepad2.left_trigger > 0.05) {
-                robot.moveArm(.8 * gamepad2.left_trigger);
+                robot.moveArm(gamepad2.left_trigger);
             }
 
+            //goes up
             if (gamepad2.right_trigger > 0.05) {
-                robot.moveArm(gamepad2.right_trigger * -.8);
+                robot.moveArm(-gamepad2.right_trigger);
             }
 
             if ((gamepad2.right_trigger <= 0.05) && (gamepad2.left_trigger <= 0.05)) {
-                robot.moveArm(.1);
+                robot.holdArmEncoder();
+                robot.stopArm();
             }
 
             if (gamepad2.start && gamepad2.right_bumper){
