@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.util.Size;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.Range;
@@ -17,7 +18,7 @@ import org.firstinspires.ftc.vision.opencv.ColorRange;
 import org.firstinspires.ftc.vision.opencv.ImageRegion;
 
 import java.util.List;
-
+@Disabled
 @Autonomous(name = "Auto: Turn to Artifact (Mecanum Centered)", group = "Concept")
 public class TurnToArtifacts extends LinearOpMode {
 

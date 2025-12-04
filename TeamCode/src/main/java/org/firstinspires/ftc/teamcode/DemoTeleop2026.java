@@ -30,26 +30,25 @@
 package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
 
 
 /**
  * This file contains Teleop
  */
 
-@TeleOp(name = "Teleop2026", group = "Linear Opmode")
+@TeleOp(name = "DemoTeleop2026", group = "Linear Opmode")
 
-public class Teleop2026 extends LinearOpMode {
+public class DemoTeleop2026 extends LinearOpMode {
 
     // Declare OpMode members for each of the 4 motors.
-    Hardware2026 robot = new Hardware2026(this);
+    DemoHardware2026 robot = new DemoHardware2026(this);
     private final ElapsedTime runtime = new ElapsedTime();
 
     // Robot class
     public void runOpMode() {
         robot.init();
+        //robot.startSlide();
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -57,26 +56,16 @@ public class Teleop2026 extends LinearOpMode {
         waitForStart();
         runtime.reset();
 
+        // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
-
-//            robot.driveWithOtos();
-
-            int currentPosition = robot.turntableMotor.getCurrentPosition();
-            telemetry.addData("Current Encoder Position:", currentPosition);
-            telemetry.update();
-//            robot.updateTurntableToFaceTarget();
 
             if (gamepad1.options) {
                 robot.resetYaw();
-            }//90:37/, 180:76, 270:116/115 360:
+            }
             //Slow scales input
             double gp1LY = gamepad1.left_stick_y;
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
-
-//            robot.turnToAprilTag(24);
-//            robot.stabilizeCameraFieldForward();
-//            telemetry.addData("bearing:", robot.getTagBearing());
 
             //slow scale 1
             if (gamepad1.right_bumper) {
@@ -93,46 +82,12 @@ public class Teleop2026 extends LinearOpMode {
                 gp1LX *= slowScale;
                 gp1RX *= slowScale;
             }
-            robot.updateDaisySpin();
 
-            //field centric
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
-            //ignore input or cancel (another method, kill slide/stop slide) currently running operation if second button pressed
-            //go to the pickup height
             telemetry.update();
 
-            //spintake
-//            double intake_position = 0;
-//            if (gamepad2.dpad_down) {
-//                intake_position = 1;
-//            } else if (gamepad2.dpad_up) {
-//                intake_position = -1;
-//            } else {
-//                intake_position = 0.0;
-//            }
-//            robot.spinTake(intake_position);
 
-            double turntableSpeed = gamepad2.left_stick_y;
-            robot.turntableMotor.setPower(turntableSpeed);
-
-//            if (gamepad2.right_bumper){
-//                robot.shootArtifact(1, 1);
-//            }
-//            else {
-//                robot.shootArtifact(0, 1);
-//            }
-
-            if (gamepad2.y){
-                robot.startDaisySpin(1, 1);
-            }
-
-            if (gamepad2.a){
-                robot.shootArtifactTotal(3);
-            }
-            double shooterSpeed = gamepad2.right_trigger;
-            robot.shootArtifact(shooterSpeed);
         }
-        robot.stopCamera();
     }
 }

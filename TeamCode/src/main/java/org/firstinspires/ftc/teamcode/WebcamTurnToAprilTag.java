@@ -8,6 +8,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
+@Disabled
 @Autonomous(name = "WebcamTurnToAprilTag")
 public class WebcamTurnToAprilTag extends LinearOpMode {
 

@@ -5,28 +5,26 @@ import android.util.Log;
 import com.arcrobotics.ftclib.geometry.Pose2d;
 import com.arcrobotics.ftclib.geometry.Rotation2d;
 import com.arcrobotics.ftclib.geometry.Translation2d;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.hardware.sparkfun.SparkFunOTOS;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
-import com.qualcomm.robotcore.hardware.CRServo;
-
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-
 import java.util.List;
 
-public class Hardware2026 {
+public class DemoHardware2026 {
     /* Declare OpMode members. */
     private LinearOpMode myOpMode = null;   // gain access to methods in the calling OpMode.
 
@@ -35,11 +33,6 @@ public class Hardware2026 {
     private DcMotor leftBackDrive = null;
     private DcMotor rightFrontDrive = null;
     private DcMotor rightBackDrive = null;
-    public DcMotor turntableMotor;
-    public DcMotor shooterRight;
-    public DcMotor shooterLeft;
-//    public CRServo spinTake;
-    public CRServo daisy;
 
 
     // Define IMU object and headings (Make it private so it can't be accessed externally)
@@ -67,19 +60,12 @@ public class Hardware2026 {
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
-    private static final int TARGET_TAG_ID = 24;
     private final double BEARING_TOLERANCE = 0.1;
 
     // Create an instance of the otos sensor
      SparkFunOTOS myOtos;
 
-     // daisy things
-    ElapsedTime daisyTimer = new ElapsedTime();
-    boolean daisyIsSpinning = false;
-    int daisySpinDuration = 0;
-
-    // Define a constructor that allows the OpMode to pass a reference to itself.
-    public Hardware2026(LinearOpMode opmode) {
+    public DemoHardware2026(LinearOpMode opmode) {
         myOpMode = opmode;
     }
 
@@ -94,23 +80,11 @@ public class Hardware2026 {
 
         // Define and Initialize Motors (note: need to use reference to actual OpMode).
         leftFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_front_drive");
-        leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");//port2
-        rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");//port0
-        rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");//port1
-//        cameraMotor = myOpMode.hardwareMap.get(DcMotor.class, "camera_motor");
-        turntableMotor = myOpMode.hardwareMap.get(DcMotor.class, "camera_motor");//port2
-        shooterRight = myOpMode.hardwareMap.get(DcMotor.class, "shooter_right");//port1
-        shooterLeft = myOpMode.hardwareMap.get(DcMotor.class, "shooter_left");//port0
-//        spinTake = myOpMode.hardwareMap.get(CRServo.class, "spin_take");
-        daisy = myOpMode.hardwareMap.get(CRServo.class, "daisy");
-
-        turntableMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        turntableMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        turntableMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        turntableMotor.setPower(0);
-
-        myOtos = myOpMode.hardwareMap.get(SparkFunOTOS.class, "sensor_otos"); //Otos sensor
-        configureOtos();
+        leftBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "left_back_drive");
+        rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");
+        rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");
+//        myOtos = myOpMode.hardwareMap.get(SparkFunOTOS.class, "sensor_otos"); //Otos sensor
+//        configureOtos();
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
@@ -119,11 +93,8 @@ public class Hardware2026 {
         // 18-C-RC: (demo bot) F
         leftFrontDrive.setDirection(DcMotor.Direction.FORWARD);
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+        rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
         rightBackDrive.setDirection(DcMotor.Direction.REVERSE);
-        turntableMotor.setDirection(DcMotor.Direction.FORWARD);
-        shooterRight.setDirection(DcMotor.Direction.REVERSE);
-        shooterLeft.setDirection(DcMotor.Direction.FORWARD);
 
         // Retrieve the IMU from the hardware map
         imu = myOpMode.hardwareMap.get(IMU.class, "imu");
@@ -139,8 +110,6 @@ public class Hardware2026 {
         resetHeading();
         myOpMode.telemetry.addData(">", "Hardware Initialized");
         myOpMode.telemetry.update();
-
-        turntableMotor.setPower(0);
     }
 
     //CAMERA STUFF!
@@ -162,7 +131,6 @@ public class Hardware2026 {
 
         // FIX: you forgot this!
         aprilTagWebcam = new AprilTagWebcam();
-
     }
 
 
@@ -180,47 +148,7 @@ public class Hardware2026 {
         }
         return Double.NaN;
     }
-    public void turnToAprilTag(int targetId) {
-        AprilTagDetection tag = null;
-        List<AprilTagDetection> detections = aprilTag.getDetections();
 
-        for (AprilTagDetection d : detections) {
-            if (d.id == targetId) {
-                tag = d;
-                break;
-            }
-        }
-
-        double power = 0.0;
-
-        if (tag != null && tag.ftcPose != null) {
-            double bearing = tag.ftcPose.bearing;
-
-            myOpMode.telemetry.addData("Detected Tag", tag.id);
-            myOpMode.telemetry.addData("Bearing (deg)", bearing);
-
-            if (Math.abs(bearing) > BEARING_TOLERANCE) {
-                if (bearing < 0) {
-                    power = 0.2;  // turn right
-                } else {
-                    power = -0.2; // turn left
-                }
-            } else {
-                power = 0.0;     // aligned
-            }
-        } else {
-            // tag not found — optional slow scan
-            power = 0.1;
-        }
-
-
-        turntableMotor.setPower(power);
-
-        myOpMode.telemetry.update();
-
-        // Small delay to avoid camera overload
-//            sleep(10);
-    }
 
     public void stopCamera() {
         if (visionPortal != null) {
@@ -442,6 +370,8 @@ public class Hardware2026 {
     }
     //Goes straight by encoder (takes distance)
 
+
+
     public void straightByEncoder(double speed, double distance, double timeout) {
         int newLeftFrontTarget;
         int newLeftBackTarget;
@@ -538,67 +468,83 @@ public class Hardware2026 {
         }
     }
 
-    public void driveVectorByEncoder(double speed, double forwardInches, double strafeInches, double turnDegrees, double timeout) {
-        if (!myOpMode.opModeIsActive()) return;
+    public void driveDiagonalByEncoder(double speed, double distance, double timeout) {
+        // Break down the diagonal movement into straight and strafe components
+        double straightDistance = distance * Math.cos(Math.PI / 4);  // Diagonal is 45 degrees, so cos(45) = 1/sqrt(2)
+        double strafeDistance = distance * Math.sin(Math.PI / 4);    // Similarly, sin(45) = 1/sqrt(2)
 
-        DcMotor.RunMode oldMotorMode = leftFrontDrive.getMode();
+        // First, move forward/straight by the appropriate amount
+        straightByEncoder(speed, straightDistance, timeout);
 
-        // Reset encoders
-        setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        // Then, strafe by the appropriate amount
+        strafeByEncoder(speed, strafeDistance, timeout);
+    }
+    public void driveByEncoderXY(double speed, double xInches, double yInches, double timeout) {
+        if (myOpMode.opModeIsActive()) {
+            DcMotor.RunMode oldMotorMode = leftFrontDrive.getMode();
 
-        // Convert turn degrees into wheel "inches"
-        // TUNE this constant for your robot radius
-        final double INCHES_PER_DEGREE = 0.10;
-        double turnInches = turnDegrees * INCHES_PER_DEGREE;
+            // Reset encoders
+            setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        // Convert translational motion to wheel distances
-        // Standard mecanum forward/strafe equations
-        double lfDist =  forwardInches + strafeInches + turnInches;
-        double rfDist =  forwardInches - strafeInches - turnInches;
-        double lbDist =  forwardInches - strafeInches + turnInches;
-        double rbDist =  forwardInches + strafeInches - turnInches;
+            // Compute movement in encoder counts
+            int xCounts = (int)(xInches * COUNTS_PER_INCH);
+            int yCounts = (int)(yInches * COUNTS_PER_INCH);
 
-        // Convert to encoder counts
-        int lfTarget = leftFrontDrive.getCurrentPosition() + (int)(lfDist * COUNTS_PER_INCH);
-        int rfTarget = rightFrontDrive.getCurrentPosition() + (int)(rfDist * COUNTS_PER_INCH);
-        int lbTarget = leftBackDrive.getCurrentPosition()  + (int)(lbDist * COUNTS_PER_INCH);
-        int rbTarget = rightBackDrive.getCurrentPosition() + (int)(rbDist * COUNTS_PER_INCH);
+            // Calculate each motor’s movement
+            int leftFrontTarget  = leftFrontDrive.getCurrentPosition()  + (yCounts + xCounts);
+            int rightFrontTarget = rightFrontDrive.getCurrentPosition() + (yCounts - xCounts);
+            int leftBackTarget   = leftBackDrive.getCurrentPosition()   + (yCounts - xCounts);
+            int rightBackTarget  = rightBackDrive.getCurrentPosition()  + (yCounts + xCounts);
 
-        // Apply target positions
-        leftFrontDrive.setTargetPosition(lfTarget);
-        rightFrontDrive.setTargetPosition(rfTarget);
-        leftBackDrive.setTargetPosition(lbTarget);
-        rightBackDrive.setTargetPosition(rbTarget);
+            // Normalize the values so that no wheel goes beyond the longest distance
+            int max = Math.max(
+                    Math.max(Math.abs(leftFrontTarget), Math.abs(rightFrontTarget)),
+                    Math.max(Math.abs(leftBackTarget), Math.abs(rightBackTarget))
+            );
+            if (max > Math.abs(yCounts) + Math.abs(xCounts)) {
+                double scale = ((double)(Math.abs(yCounts) + Math.abs(xCounts))) / max;
+                leftFrontTarget  *= scale;
+                rightFrontTarget *= scale;
+                leftBackTarget   *= scale;
+                rightBackTarget  *= scale;
+            }
 
-        setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+            // Set target positions
+            leftFrontDrive.setTargetPosition(leftFrontTarget);
+            rightFrontDrive.setTargetPosition(rightFrontTarget);
+            leftBackDrive.setTargetPosition(leftBackTarget);
+            rightBackDrive.setTargetPosition(rightBackTarget);
 
-        // Normalize power so no motor exceeds speed
-        double max = Math.max(Math.max(Math.abs(lfDist), Math.abs(rfDist)), Math.max(Math.abs(lbDist), Math.abs(rbDist)));
-        double scale = 1.0;
+            // Run to position
+            setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
 
-        leftFrontDrive.setPower(Math.abs(speed * scale));
-        leftBackDrive.setPower(Math.abs(speed * scale));
-        rightFrontDrive.setPower(Math.abs(speed * scale));
-        rightBackDrive.setPower(Math.abs(speed * scale));
+            // Start motion
+            runtime.reset();
+            leftFrontDrive.setPower(Math.abs(speed));
+            leftBackDrive.setPower(Math.abs(speed));
+            rightFrontDrive.setPower(Math.abs(speed));
+            rightBackDrive.setPower(Math.abs(speed));
 
-        runtime.reset();
-        while (myOpMode.opModeIsActive() &&
-                runtime.seconds() < timeout &&
-                (leftFrontDrive.isBusy() || rightFrontDrive.isBusy() ||
-                        leftBackDrive.isBusy()  || rightBackDrive.isBusy())) {
+            // Wait until done or timeout
+            while (myOpMode.opModeIsActive() &&
+                    (runtime.seconds() < timeout) &&
+                    (leftFrontDrive.isBusy() || rightFrontDrive.isBusy() ||
+                            leftBackDrive.isBusy() || rightBackDrive.isBusy())) {
 
-            myOpMode.telemetry.addData("Targets", "LF:%d RF:%d LB:%d RB:%d",
-                    lfTarget, rfTarget, lbTarget, rbTarget);
-            myOpMode.telemetry.addData("Current", "LF:%d RF:%d LB:%d RB:%d",
-                    leftFrontDrive.getCurrentPosition(), rightFrontDrive.getCurrentPosition(),
-                    leftBackDrive.getCurrentPosition(), rightBackDrive.getCurrentPosition());
-            // myOpMode.telemetry.update();
+                myOpMode.telemetry.addData("Target", "lf:%d lb:%d rf:%d rb:%d",
+                        leftFrontTarget, leftBackTarget, rightFrontTarget, rightBackTarget);
+                myOpMode.telemetry.addData("Current", "lf:%d lb:%d rf:%d rb:%d",
+                        leftFrontDrive.getCurrentPosition(), leftBackDrive.getCurrentPosition(),
+                        rightFrontDrive.getCurrentPosition(), rightBackDrive.getCurrentPosition());
+                // myOpMode.telemetry.update();
+            }
+
+            // Stop motors
+            stop();
+            setMotorMode(oldMotorMode);
+            myOpMode.sleep(250);
         }
-
-        stop();
-        setMotorMode(oldMotorMode);
-        myOpMode.sleep(300);
     }
 
     //Drives for a set amount of time (takes time)
@@ -763,468 +709,6 @@ public class Hardware2026 {
         rightFrontDrive.setPower(0.01);
         rightBackDrive.setPower(0.01);
     }
-
-    // Decode 2026 ----------------------------------------------------------------------------
-    public class PID {
-        private double kP, kI, kD;
-        private double integral = 0.0;
-        private double lastError = 0.0;
-
-        private double derivativeFilter = 0.0;
-        private final double derivTau = 0.02; // seconds
-
-        public PID(double kP, double kI, double kD) {
-            this.kP = kP;
-            this.kI = kI;
-            this.kD = kD;
-        }
-
-        public double update(double error, double dt) {
-            if (dt <= 0) return 0.0;
-
-            integral += error * dt;
-
-            double rawDeriv = (error - lastError) / dt;
-            double alpha = dt / (derivTau + dt);
-
-            derivativeFilter += alpha * (rawDeriv - derivativeFilter);
-            lastError = error;
-
-            return (kP * error) + (kI * integral) + (kD * derivativeFilter);
-        }
-
-        public void reset() {
-            integral = 0.0;
-            lastError = 0.0;
-            derivativeFilter = 0.0;
-        }
-
-        public void clampIntegral(double min, double max) {
-            if (integral > max) integral = max;
-            if (integral < min) integral = min;
-        }
-    }
-
-    public void turnToAprilTag () {
-        turntableMotor = myOpMode.hardwareMap.get(DcMotor.class, "camera_motor");
-        turntableMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        // Try REVERSE first; flip if wrong
-        turntableMotor.setDirection(DcMotor.Direction.REVERSE);
-
-        // AprilTag setup
-        aprilTag = AprilTagProcessor.easyCreateWithDefaults();
-        visionPortal = VisionPortal.easyCreateWithDefaults(
-                myOpMode.hardwareMap.get(WebcamName.class, "Webcam 1"),
-                aprilTag
-        );
-
-        // PID tuned for 16->90 sprocket ratio (ratio ≈ 5.625)
-        PID turnPID = new PID(0.006, 0.00005, 0.00045);
-
-        // Control params
-        final double MAX_POWER = 0.20;
-        final double DEADBAND_DEG = 4.0;
-
-        double filteredBearing = 0.0;
-        final double LPF_ALPHA = 0.6;
-
-        myOpMode.telemetry.addLine("Ready - press START");
-        myOpMode.telemetry.update();
-
-        myOpMode.waitForStart();
-
-        long lastNs = System.nanoTime();
-
-        // -------------------------------------------------------
-        // Main Loop
-        // -------------------------------------------------------
-        while (myOpMode.opModeIsActive()) {
-
-        long nowNs = System.nanoTime();
-        double dt = (nowNs - lastNs) / 1e9;
-        lastNs = nowNs;
-
-        List<AprilTagDetection> detections = aprilTag.getDetections();
-        AprilTagDetection tag24 = null;
-
-        // Find Tag 24
-        for (AprilTagDetection d : detections) {
-            if (d.id == 24) {
-                tag24 = d;
-                break;
-            }
-        }
-
-        if (tag24 != null && tag24.ftcPose != null) {
-
-            double rawBearing = tag24.ftcPose.bearing;
-
-            // LPF smoothing
-            filteredBearing =
-                    (LPF_ALPHA * filteredBearing) +
-                            ((1.0 - LPF_ALPHA) * rawBearing);
-
-            double bearingError = filteredBearing; // target = 0
-
-            // Inside deadband → stop
-            if (Math.abs(bearingError) <= DEADBAND_DEG) {
-                turntableMotor.setPower(0.0);
-                turnPID.reset();
-                myOpMode.telemetry.addLine("CENTERED ✔");
-            } else {
-                double power = turnPID.update(bearingError, dt);
-
-                turnPID.clampIntegral(-100.0, 100.0);
-
-                if (power > MAX_POWER) power = MAX_POWER;
-                if (power < -MAX_POWER) power = -MAX_POWER;
-                if (Math.abs(power) < 0.02) power = 0.0;
-
-                turntableMotor.setPower(power);
-
-                myOpMode.telemetry.addData("rawBearing", rawBearing);
-                myOpMode.telemetry.addData("filteredBearing", filteredBearing);
-                myOpMode.telemetry.addData("bearingError", bearingError);
-                myOpMode.telemetry.addData("pidPower", power);
-            }
-        } else {
-            turntableMotor.setPower(0.0);
-            turnPID.reset();
-            myOpMode.telemetry.addLine("Tag 24 NOT FOUND");
-        }
-
-        myOpMode.telemetry.update();
-        myOpMode.sleep(15);
-    }
-
-        visionPortal.close();
-}
-
-    public void updateTurntableToFaceTarget() {
-        double TARGET_FIELD_X = 132.0;   // your target X in field coordinates (inches or units)
-        double TARGET_FIELD_Y = 12.0;   // your target Y
-        double ROBOT_START_FIELD_X = 3.5*24; // robot start X
-        double ROBOT_START_FIELD_Y = 5.8*24;  // robot start Y
-
-        SparkFunOTOS.Pose2D pos = myOtos.getPosition();
-        double robotX = pos.x;
-        double robotY = pos.y;
-        double robotHeading = pos.h;   // degrees
-
-        double targetX = TARGET_FIELD_X - ROBOT_START_FIELD_X;
-        double targetY = TARGET_FIELD_Y - ROBOT_START_FIELD_Y;
-
-        double dx = targetX - robotX;
-        double dy = targetY - robotY;
-
-        double angleToTarget = Math.toDegrees(Math.atan2(dy, dx));
-
-        double error = angleToTarget - robotHeading;
-
-        error = ((error + 540) % 360) - 180;
-        error = Math.round(error / 2) * 2;
-
-        setTurntableAngleHeavy(error);
-
-        myOpMode.telemetry.addData("Robot Pos", "X=%.2f Y=%.2f H=%.2f", robotX, robotY, robotHeading);
-        myOpMode.telemetry.addData("Target OTOS", "X=%.2f Y=%.2f", targetX, targetY);
-        myOpMode.telemetry.addData("Angle Error", "%.2f", error);
-        myOpMode.telemetry.update();
-
-    }
-    public void setTurntableAngle(double desiredAngleDegrees) {
-
-        double countsPerDegree = 39.0 / 90.0;
-        double toleranceDegrees = 2.0; // ±2 degrees wiggle room
-        int toleranceCounts = (int)Math.round(toleranceDegrees * countsPerDegree);
-
-        int targetCounts = (int)Math.round(desiredAngleDegrees * countsPerDegree);
-        int currentCounts = turntableMotor.getCurrentPosition();
-
-        double power = 1.0;
-
-        if (Math.abs(targetCounts - currentCounts) > toleranceCounts) {
-            turntableMotor.setTargetPosition(targetCounts);
-            turntableMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            turntableMotor.setPower(power);
-        } else {
-            turntableMotor.setPower(0); // stop if within tolerance
-        }
-
-        myOpMode.telemetry.addData("Turret Angle (deg)", desiredAngleDegrees);
-        myOpMode.telemetry.addData("Turret Target Counts", targetCounts);
-        myOpMode.telemetry.addData("Turret Current Counts", currentCounts);
-        myOpMode.telemetry.addData("Within Tolerance", Math.abs(targetCounts - currentCounts) <= toleranceCounts);
-        myOpMode.telemetry.update();
-    }
-    public void setTurntableAngleHeavy(double desiredAngleDegrees) {
-
-        double countsPerDegree = 39.0 / 90.0;
-        double toleranceDegrees = 2.0; // ±2 degrees wiggle room
-        int toleranceCounts = (int)Math.round(toleranceDegrees * countsPerDegree);
-
-        int targetCounts = (int)Math.round(desiredAngleDegrees * countsPerDegree);
-        int currentCounts = turntableMotor.getCurrentPosition();
-
-        double maxPower = 1.0;   // maximum movement power
-        double minHoldPower = 0.15;  // minimum holding power to resist backdrive
-        double kP = 0.02;        // simple proportional gain
-
-        int error = targetCounts - currentCounts;
-
-        if (Math.abs(error) > toleranceCounts) {
-            // proportional control to move toward target
-            double power = kP * error;
-
-            // clip power so it never exceeds maxPower
-            power = Math.max(-maxPower, Math.min(maxPower, power));
-
-            turntableMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            turntableMotor.setPower(power);
-        } else {
-            // within tolerance → apply small holding power proportional to error
-            double holdPower = Math.signum(error) * minHoldPower;
-            turntableMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            turntableMotor.setPower(holdPower);
-        }
-
-        myOpMode.telemetry.addData("Turret Angle (deg)", desiredAngleDegrees);
-        myOpMode.telemetry.addData("Turret Target Counts", targetCounts);
-        myOpMode.telemetry.addData("Turret Current Counts", currentCounts);
-        myOpMode.telemetry.addData("Error", error);
-        myOpMode.telemetry.addData("Within Tolerance", Math.abs(error) <= toleranceCounts);
-        myOpMode.telemetry.update();
-    }
-
-//    public void spinTake(double intake_power) {
-//        spinTake.setPower(intake_power);
-//    }
-
-    public void daisySpin(double daisy_power, int artifacts) {
-        daisy.setPower(daisy_power);
-        int time = 450 * artifacts;
-        myOpMode.sleep(time);
-        daisy.setPower(0);
-    }
-
-    public void startDaisySpin(double daisy_power, int artifacts) {
-        daisySpinDuration = 450 * artifacts; // how long to run
-        daisy.setPower(daisy_power);
-        daisyTimer.reset();
-        daisyIsSpinning = true;
-    }
-
-    public void updateDaisySpin() {
-        if (daisyIsSpinning) {
-            if (daisyTimer.milliseconds() >= daisySpinDuration) {
-                daisy.setPower(0);
-                daisyIsSpinning = false;
-            }
-        }
-    }
-
-    public void shootArtifactTotal(int artifacts) {
-        shootArtifact(1);
-        daisySpin(1, artifacts);
-        shootArtifact(0);
-    }
-
-    public void turntable(double intake_power) {
-        turntableMotor.setPower(intake_power);
-    }
-
-    public void shootArtifact(double shooterPower) {
-        shooterRight.setPower(shooterPower);
-        shooterLeft.setPower(shooterPower);
-    }
-
-    public void shootArtifactTimed(double shooterPower, double time){
-        while (myOpMode.opModeIsActive() && (runtime.seconds() <= time)) {
-            shootArtifact(shooterPower); // Set motor power (1.0 is full power)
-            myOpMode.telemetry.addData("Status", "Running: %2.5f S elapsed", runtime.seconds());
-            myOpMode.telemetry.update();
-        }
-        shootArtifact(0);
-    }
-
-    public int autoDecision() {
-        int pattern = 0;
-        List<AprilTagDetection> detections = aprilTag.getDetections();
-
-        for (AprilTagDetection detection : detections) {
-
-            // Look for a specific tag ID
-            if (detection.id == 21) {
-                pattern = 1; //GPP
-                return pattern;
-            } else if (detection.id == 22) {
-                pattern = 2; //PGP
-                return pattern;
-            } else if (detection.id == 23) {
-                pattern = 3; //PPG
-                return pattern;
-            } else {
-                return pattern;
-            }
-        }   // end method telemetryAprilTag()
-        return pattern;
-    }
-
-    //autonomous stuff!
-    public void autoGPP() {
-        driveByOtos(5,5,0, 30);
-    }
-
-    public void autoGPG() {
-        driveByOtos(2,2,0, 30);
-    }
-
-    public void autoPPG() {
-        driveByOtos(2,2,0, 30);
-    }
-
-    /*
-    -------HARDWARE---------
-    private DcMotor intakeMotor, turntableMotor;
-    private Servo doorToTurntable, launcherDoor;
-    private ColorSensor colorSensor;
-
-    private String[] slots = {null, null, null};
-    private int currentSlot = 0;
-    private static final double DOOR_TURN_OPEN = 0.8;
-    private static final double DOOR_TURN_CLOSED = 0.2;
-    private static final double LAUNCHER_OPEN = 0.9;
-    private static final double LAUNCHER_CLOSED = 0.1;
-    private static final int COUNTS_PER_SLOT = COUNTS_PER_MOTOR_REV / 3;
-
-    public void init(HardwareMap hwMap) {
-        //just add motors to init class
-        intakeMotor = hwMap.dcMotor.get("intake");
-        turntableMotor = hwMap.dcMotor.get("turntable");
-        doorToTurntable = hwMap.servo.get("doorTurn");
-        launcherDoor = hwMap.servo.get("doorLaunch");
-        colorSensor = hwMap.colorSensor.get("color");
-
-        turntableMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        turntableMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-    }
-    //idk what interrupted exception is, make sure that works
-    private void intakeCycle() throws InterruptedException {
-        // Spin intake and detect color intakeMotor.setPower(0.8);
-        String detectedColor = detectColor();
-        if (detectedColor != null) {
-            intakeMotor.setPower(0);
-            openDoorToTurntable();
-            sleep(300);
-            insertIntoTurntable(detectedColor);
-            closeDoorToTurntable();
-            }
-        }
-    private String detectColor() {
-        int red = colorSensor.red();
-        int green = colorSensor.green();
-        int blue = colorSensor.blue();
-        if (green > red && green > blue) {
-            return "green"; }
-        else if (red > green && blue > green) {
-            return "purple";
-            // adjust thresholding for your sensor
-        } else {
-            return null; }
-        }
-    private void insertIntoTurntable(String color) throws InterruptedException {
-        slots[currentSlot] = color; telemetry.addData("Inserted", color + " in slot " + currentSlot);
-        telemetry.update();
-        // Rotate to next intake position (next slot)
-        currentSlot = (currentSlot + 1) % 3;
-        rotateTurntableToSlot(currentSlot);
-    }
-    private void rotateTurntableToSlot(int slotIndex) {
-        int targetTicks = slotIndex * TICKS_PER_SLOT;
-        turntableMotor.setTargetPosition(targetTicks);
-        turntableMotor.setPower(0.4);
-        while (opModeIsActive() && turntableMotor.isBusy()) {
-            telemetry.addData("Turning to slot", slotIndex);
-            telemetry.update(); }
-        turntableMotor.setPower(0); }
-    private void shootColor(String color) throws InterruptedException {
-        for (int i = 0; i < 3; i++) {
-            if (color.equals(slots[i])) {
-                rotateTurntableToSlot(i);
-                openLauncherDoor();
-                sleep(500);
-                launch();
-                closeLauncherDoor();
-                slots[i] = null;
-                break; }
-                }
-                }
-    private void launch() {
-        // This could trigger a flywheel, pneumatic, or similar
-        telemetry.addLine("Launched!");
-        telemetry.update(); }
-
-    // Servo control helpers
-    public void openDoorToTurntable() { doorToTurntable.setPosition(DOOR_TURN_OPEN); }
-    public void closeDoorToTurntable() { doorToTurntable.setPosition(DOOR_TURN_CLOSED); }
-    public void openLauncherDoor() { launcherDoor.setPosition(LAUNCHER_OPEN); }
-    public void closeLauncherDoor() { launcherDoor.setPosition(LAUNCHER_CLOSED); }
-
-    ------TELEOP------
-    @TeleOp(name="Color Sorter Launcher", group="Linear Opmode")
-    public class ColorSorterLauncherTeleOp extends LinearOpMode {
-
-        private HardwareColorSorter robot = new HardwareColorSorter();
-
-        public void runOpMode() throws InterruptedException {
-            robot.init(hardwareMap);
-
-            telemetry.addLine("Ready");
-            telemetry.update();
-
-            waitForStart();
-
-            while (opModeIsActive()) {
-                // Press A to run intake cycle
-                if (gamepad1.a) {
-                    robot.intakeCycle();
-                }
-
-                // Press B to shoot green
-                if (gamepad1.b) {
-                    robot.shootColor("green");
-                }
-
-                // Press X to shoot purple
-                if (gamepad1.x) {
-                    robot.shootColor("purple");
-                }
-
-                telemetry.addData("Slots", Arrays.toString(robot.slots));
-                telemetry.update();
-            }
-        }
-    }
-     */
-
-    /*
-        intake spins (use encoder and ticks --> how many ticks in one revolution?)
-        artifact goes on ramp
-        door to turntable opens (servo-->open while intake spins?)
-        detect color
-        go into turntable
-            spots 1,2,3
-            spot 1 = color detected (green)
-            spot 2 = color detected (purple)
-            spot 3 = color detected (green)
-            spot 1 intake, spot 3 shoot
-            spot 2 intake, spot 1 shoot
-            spot 3 intake, spot 2 shoot
-        turntable turns 120 degrees + shoots
- */
-
-
 
 }
 
