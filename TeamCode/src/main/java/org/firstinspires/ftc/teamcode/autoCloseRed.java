@@ -18,12 +18,20 @@ public class autoCloseRed extends LinearOpMode {
 
 
         robot.driveVectorByEncoder(1, .8, -1.3, -13, 30);
-//        robot.turntableMotor.setPower(0);
+        if (robot.autoDecision().equals("GPP")) {
+            robot.autoGPP();
+        } else if (robot.autoDecision().equals("PGP")) {
+            robot.autoPGP();
+        } else if (robot.autoDecision().equals("PPG")) {
+            robot.autoPPG();
+        }
 
+//        robot.turntableMotor.setPower(0);
 //        robot.shootArtifact(.9);
-        sleep(500);
+//        sleep(500);
 //        robot.daisySpin(1 ,5);
 //        robot.shootArtifact(0);
+
         robot.driveVectorByEncoder(1, -15, -18, 0, 30);
 
     }

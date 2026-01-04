@@ -53,6 +53,8 @@ public class Teleop2026 extends LinearOpMode {
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
+        robot.updateAprilTagOrder();
+
         waitForStart();
         runtime.reset();
 
@@ -63,6 +65,7 @@ public class Teleop2026 extends LinearOpMode {
             double ticksFromZero = robot.turntableMotor.getCurrentPosition() / .43;
             telemetry.addData("Angle", ticksFromZero);
 
+            //GAMEPAD 1: Field-centric driving, slowscale, etc.
             if (gamepad1.options) {
                 robot.resetYaw();
             }
@@ -87,16 +90,9 @@ public class Teleop2026 extends LinearOpMode {
 
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
-            telemetry.update();
+            //GAMEPAD 2
 
-//            if (gamepad2.y){
-//                robot.startDaisySpin(1, 1);
-//            }
-//            robot.updateDaisySpin();
-
-//            double shooterSpeed = gamepad2.right_trigger;
-//            robot.shootArtifact(shooterSpeed);
-
+            // Turntable stuff
 //            if (robot.checkIfDetected(24)){
 //                boolean centered = robot.updateTurretToAprilTag(24);
 //
@@ -105,20 +101,60 @@ public class Teleop2026 extends LinearOpMode {
 //            } else {
 //                robot.updateTurntableToFaceTarget();
 //            }
+            boolean centered = robot.updateTurretToAprilTag(24);
 
-            if (gamepad1.b){
-                robot.setTurntableAngle(robot.updateTurntableToFaceTarget(),.8);
-            } else {
-                robot.turntableMotor.setPower(0);
-            }
+            telemetry.addData("Turret AutoAim", "ACTIVE");
+            telemetry.addData("Turret Centered", centered);
+//            if (gamepad1.b){
+//                if (robot.checkIfDetected(24)){
+//                boolean centered = robot.updateTurretToAprilTag(24);
+//
+//                telemetry.addData("Turret AutoAim", "ACTIVE");
+//                telemetry.addData("Turret Centered", centered);
+//            } else {
+//                robot.updateTurntableToFaceTarget();
+//            } }
+//            else {
+//                robot.turntableMotor.setPower(0);
+//            }
+
+            // Spintake stuff
 
             if (gamepad2.left_bumper){
                 robot.spinTake(1);
             } else {
                 robot.stopSpinTake();
             }
-//            robot.driveWithOtos();
 
+            // Shooter and sorter stuff
+            double currentVoltage = robot.axlePot.getVoltage();
+            int currentPosIndex = robot.getClosestPosition(currentVoltage);
+
+            robot.updateAprilTagOrder();
+
+
+            if (currentPosIndex != -1 && !robot.spotLocked[currentPosIndex]) {
+                robot.scanCurrentSpot(currentPosIndex);
+            }
+
+            // Movement Controls
+            if (gamepad1.a) robot.moveToVoltage(robot.POSITION_ONE);
+            else if (gamepad1.b) robot.moveToVoltage(robot.POSITION_TWO);
+            else if (gamepad1.x) robot.moveToVoltage(robot.POSITION_THREE);
+            else if (gamepad1.y && currentPosIndex != -1) {
+                int nextIndex = (currentPosIndex + 1) % robot.POSITIONS.length;
+                robot.moveToVoltage(robot.POSITIONS[nextIndex]);
+            }
+
+            if (gamepad1.start) robot.resetSystem();
+            if (gamepad1.right_bumper) robot.runAutoLaunch();
+            if (gamepad1.dpad_up) {
+                robot.startLauncher();
+            } else{
+                robot.stopLauncher();
+            }
+
+            robot.updateTelemetry(currentVoltage, currentPosIndex);
         }
 //        robot.stopCamera();
     }

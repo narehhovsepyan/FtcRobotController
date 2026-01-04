@@ -17,10 +17,17 @@ public class autoFarBlue extends LinearOpMode {
         robot.resetYaw();
 
         robot.driveVectorByEncoder(1, -5.3, 0, -20, 30);
+        if (robot.autoDecision().equals("GPP")) {
+            robot.autoGPP();
+        } else if (robot.autoDecision().equals("PGP")) {
+            robot.autoPGP();
+        } else if (robot.autoDecision().equals("PPG")) {
+            robot.autoPPG();
+        }
 //        robot.shootArtifact(1);
-        sleep(500);
+//        sleep(500);
 //        robot.daisySpin(1 ,5);
-        sleep(500);
+//        sleep(500);
 //        robot.shootArtifact(0);
         robot.driveVectorByEncoder(1, -3, 0, 0, 30);
     }
