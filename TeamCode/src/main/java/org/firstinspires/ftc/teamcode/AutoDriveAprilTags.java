@@ -167,7 +167,7 @@ public class AutoDriveAprilTags extends LinearOpMode {
 //                    strafe = Range.clip(headingError * STRAFE_GAIN, -MAX_AUTO_STRAFE, MAX_AUTO_STRAFE);
 
                     telemetry.addData("Auto","Drive %5.2f, Strafe %5.2f, Turn %5.2f ", drive, strafe, turn);
-                    robot.driveRobotFC(drive, strafe, turn);
+//                    robot.driveRobotFC(drive, strafe, turn);
                     sleep(10);
                 }
                 telemetry.update();

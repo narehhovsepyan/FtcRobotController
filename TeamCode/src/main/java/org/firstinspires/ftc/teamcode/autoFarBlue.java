@@ -16,12 +16,12 @@ public class autoFarBlue extends LinearOpMode {
         telemetry.update();
         robot.resetYaw();
 
-        robot.driveVectorByEncoder(1, -5, 0, -20, 30);
-        robot.shootArtifact(1);
+        robot.driveVectorByEncoder(1, -5.3, 0, -20, 30);
+//        robot.shootArtifact(1);
         sleep(500);
-        robot.daisySpin(1 ,5);
+//        robot.daisySpin(1 ,5);
         sleep(500);
-        robot.shootArtifact(0);
+//        robot.shootArtifact(0);
         robot.driveVectorByEncoder(1, -3, 0, 0, 30);
     }
 

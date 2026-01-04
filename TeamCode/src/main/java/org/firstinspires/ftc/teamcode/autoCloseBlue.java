@@ -18,13 +18,13 @@ public class autoCloseBlue extends LinearOpMode {
 
 
         robot.driveVectorByEncoder(1, .8, 1.3, 13, 30);
-        robot.turntableMotor.setPower(0);
+//        robot.turntableMotor.setPower(0);
 
-        robot.shootArtifact(.9);
+//        robot.shootArtifact(.8);
         sleep(500);
-        robot.daisySpin(1 ,5);
-        robot.shootArtifact(0);
-        robot.driveVectorByEncoder(1, -15, 18, 0, 30);
+//        robot.daisySpin(1 ,5);
+//        robot.shootArtifact(0);
+        robot.driveVectorByEncoder(1, -16, 18, 0, 30);
     }
 
     }

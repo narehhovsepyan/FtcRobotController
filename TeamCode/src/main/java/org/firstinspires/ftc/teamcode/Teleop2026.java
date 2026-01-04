@@ -34,7 +34,6 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
-
 /**
  * This file contains Teleop
  */
@@ -59,26 +58,19 @@ public class Teleop2026 extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-//            robot.driveWithOtos();
-
-            int currentPosition = robot.turntableMotor.getCurrentPosition();
-            telemetry.addData("Current Encoder Position:", currentPosition);
             telemetry.update();
-//            robot.updateTurntableToFaceTarget();
+            telemetry.addData("Turret Encoder", robot.turntableMotor.getCurrentPosition());
+            double ticksFromZero = robot.turntableMotor.getCurrentPosition() / .43;
+            telemetry.addData("Angle", ticksFromZero);
 
             if (gamepad1.options) {
                 robot.resetYaw();
-            }//90:37/, 180:76, 270:116/115 360:
-            //Slow scales input
+            }
+
             double gp1LY = gamepad1.left_stick_y;
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
 
-//            robot.turnToAprilTag(24);
-//            robot.stabilizeCameraFieldForward();
-//            telemetry.addData("bearing:", robot.getTagBearing());
-
-            //slow scale 1
             if (gamepad1.right_bumper) {
                 double slowScale = .25;
                 gp1LY *= slowScale;
@@ -86,53 +78,48 @@ public class Teleop2026 extends LinearOpMode {
                 gp1RX *= slowScale;
             }
 
-            //slow scale 2
             if (gamepad1.left_bumper) {
                 double slowScale = .33;
                 gp1LY *= slowScale;
                 gp1LX *= slowScale;
                 gp1RX *= slowScale;
             }
-            robot.updateDaisySpin();
 
-            //field centric
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
-            //ignore input or cancel (another method, kill slide/stop slide) currently running operation if second button pressed
-            //go to the pickup height
             telemetry.update();
 
-            //spintake
-//            double intake_position = 0;
-//            if (gamepad2.dpad_down) {
-//                intake_position = 1;
-//            } else if (gamepad2.dpad_up) {
-//                intake_position = -1;
+//            if (gamepad2.y){
+//                robot.startDaisySpin(1, 1);
+//            }
+//            robot.updateDaisySpin();
+
+//            double shooterSpeed = gamepad2.right_trigger;
+//            robot.shootArtifact(shooterSpeed);
+
+//            if (robot.checkIfDetected(24)){
+//                boolean centered = robot.updateTurretToAprilTag(24);
+//
+//                telemetry.addData("Turret AutoAim", "ACTIVE");
+//                telemetry.addData("Turret Centered", centered);
 //            } else {
-//                intake_position = 0.0;
-//            }
-//            robot.spinTake(intake_position);
-
-            double turntableSpeed = gamepad2.left_stick_y;
-            robot.turntableMotor.setPower(turntableSpeed);
-
-//            if (gamepad2.right_bumper){
-//                robot.shootArtifact(1, 1);
-//            }
-//            else {
-//                robot.shootArtifact(0, 1);
+//                robot.updateTurntableToFaceTarget();
 //            }
 
-            if (gamepad2.y){
-                robot.startDaisySpin(1, 1);
+            if (gamepad1.b){
+                robot.setTurntableAngle(robot.updateTurntableToFaceTarget(),.8);
+            } else {
+                robot.turntableMotor.setPower(0);
             }
 
-            if (gamepad2.a){
-                robot.shootArtifactTotal(3);
+            if (gamepad2.left_bumper){
+                robot.spinTake(1);
+            } else {
+                robot.stopSpinTake();
             }
-            double shooterSpeed = gamepad2.right_trigger;
-            robot.shootArtifact(shooterSpeed);
+//            robot.driveWithOtos();
+
         }
-        robot.stopCamera();
+//        robot.stopCamera();
     }
 }
