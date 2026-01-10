@@ -30,9 +30,7 @@
 package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
 
 /**
  * This file contains Teleop
@@ -49,9 +47,11 @@ public class Teleop2026 extends LinearOpMode {
     // Robot class
     public void runOpMode() {
         robot.init();
-
+        robot.launcherDoorClosed();
+        robot.moveToVoltage(robot.POSITION_ONE);
         telemetry.addData("Status", "Initialized");
         telemetry.update();
+
 
         robot.updateAprilTagOrder();
 
@@ -92,69 +92,52 @@ public class Teleop2026 extends LinearOpMode {
 
             //GAMEPAD 2
 
-            // Turntable stuff
-//            if (robot.checkIfDetected(24)){
-//                boolean centered = robot.updateTurretToAprilTag(24);
-//
-//                telemetry.addData("Turret AutoAim", "ACTIVE");
-//                telemetry.addData("Turret Centered", centered);
-//            } else {
-//                robot.updateTurntableToFaceTarget();
-//            }
             boolean centered = robot.updateTurretToAprilTag(24);
 
             telemetry.addData("Turret AutoAim", "ACTIVE");
             telemetry.addData("Turret Centered", centered);
-//            if (gamepad1.b){
-//                if (robot.checkIfDetected(24)){
-//                boolean centered = robot.updateTurretToAprilTag(24);
-//
-//                telemetry.addData("Turret AutoAim", "ACTIVE");
-//                telemetry.addData("Turret Centered", centered);
-//            } else {
-//                robot.updateTurntableToFaceTarget();
-//            } }
-//            else {
-//                robot.turntableMotor.setPower(0);
-//            }
-
-            // Spintake stuff
-
-            if (gamepad2.left_bumper){
-                robot.spinTake(1);
-            } else {
-                robot.stopSpinTake();
-            }
 
             // Shooter and sorter stuff
-            double currentVoltage = robot.axlePot.getVoltage();
+            if (gamepad2.start) robot.resetSystem();
+
+            double currentVoltage = robot.positionSensor.getVoltage();
             int currentPosIndex = robot.getClosestPosition(currentVoltage);
 
             robot.updateAprilTagOrder();
-
 
             if (currentPosIndex != -1 && !robot.spotLocked[currentPosIndex]) {
                 robot.scanCurrentSpot(currentPosIndex);
             }
 
-            // Movement Controls
-            if (gamepad1.a) robot.moveToVoltage(robot.POSITION_ONE);
-            else if (gamepad1.b) robot.moveToVoltage(robot.POSITION_TWO);
-            else if (gamepad1.x) robot.moveToVoltage(robot.POSITION_THREE);
-            else if (gamepad1.y && currentPosIndex != -1) {
-                int nextIndex = (currentPosIndex + 1) % robot.POSITIONS.length;
-                robot.moveToVoltage(robot.POSITIONS[nextIndex]);
+            if (gamepad2.a) {
+                robot.launcherDoorOpen();
+                robot.shootGreen();
+                robot.launcherDoorClosed();
             }
+            if (gamepad2.x) {
+                robot.launcherDoorOpen();
+                robot.shootPurple();
+                robot.launcherDoorClosed();
+            }
+            if (gamepad2.y) {
+               robot.goToNext();
+            }
+            if (gamepad2.b) {
+                robot.shootBall();
+            }
+            if (gamepad2.right_bumper) robot.runAutoLaunch();
 
-            if (gamepad1.start) robot.resetSystem();
-            if (gamepad1.right_bumper) robot.runAutoLaunch();
-            if (gamepad1.dpad_up) {
+            if (gamepad2.left_bumper) robot.launcherDoorOpen();
+            else robot.launcherDoorClosed();
+
+            if (gamepad2.dpad_up) {
                 robot.startLauncher();
             } else{
                 robot.stopLauncher();
             }
 
             robot.updateTelemetry(currentVoltage, currentPosIndex);
+            robot.allTelemetry();
         }
 //        robot.stopCamera();
     }

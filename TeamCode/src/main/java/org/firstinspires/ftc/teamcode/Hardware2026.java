@@ -14,6 +14,7 @@ import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -44,8 +45,9 @@ public class Hardware2026 {
     public CRServo spinTakeLeft;
     public CRServo spinTakeRight;
     public CRServo daisy;
-    public AnalogInput axlePot;
+    public AnalogInput positionSensor;
     public NormalizedColorSensor colorSensor;
+    public Servo launcherDoor;
 
 
     // Define IMU object and headings (Make it private so it can't be accessed externally)
@@ -78,6 +80,9 @@ public class Hardware2026 {
     static final double HEADING_THRESHOLD = 5.0;
     private static final int TARGET_TAG_ID = 24;
     private final double BEARING_TOLERANCE = 0.1;
+    // Launcher door constants
+    public final double LAUNCHER_DOOR_OPEN = 0.5;
+    public final double LAUNCHER_DOOR_CLOSED = 0.3;
 
     // Sorter constants
     static final double TOLERANCE = 0.08;  // Increased slightly for one-way reliability
@@ -126,10 +131,11 @@ public class Hardware2026 {
         turntableMotor = myOpMode.hardwareMap.get(DcMotor.class, "camera_motor");//port2
         shooterRight = myOpMode.hardwareMap.get(DcMotor.class, "shooter_right");//port1
         shooterLeft = myOpMode.hardwareMap.get(DcMotor.class, "shooter_left");//port0
-        spinTakeRight = myOpMode.hardwareMap.get(CRServo.class, "spin_take_right");
-        spinTakeLeft = myOpMode.hardwareMap.get(CRServo.class, "spin_take_left");
-        daisy = myOpMode.hardwareMap.get(CRServo.class, "turnServo");
-        axlePot = myOpMode.hardwareMap.get(AnalogInput.class, "axlePot");
+//        spinTakeRight = myOpMode.hardwareMap.get(CRServo.class, "spin_take_right");
+//        spinTakeLeft = myOpMode.hardwareMap.get(CRServo.class, "spin_take_left");
+        daisy = myOpMode.hardwareMap.get(CRServo.class, "daisy");
+        launcherDoor = myOpMode.hardwareMap.get(Servo.class, "launcherDoor");
+        positionSensor = myOpMode.hardwareMap.get(AnalogInput.class, "position");
         colorSensor = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color");
 
 
@@ -932,14 +938,14 @@ public class Hardware2026 {
         // Ensure power is always positive for RUN_TO_POSITION
         turntableMotor.setPower(Math.abs(maxPower));
     }
-    public void spinTake(double intake_power) {
-        spinTakeRight.setPower(-intake_power);
-        spinTakeLeft.setPower(intake_power);
-    }
-    public void stopSpinTake() {
-        spinTakeRight.setPower(0);
-        spinTakeLeft.setPower(0);
-    }
+//    public void spinTake(double intake_power) {
+//        spinTakeRight.setPower(-intake_power);
+//        spinTakeLeft.setPower(intake_power);
+//    }
+//    public void stopSpinTake() {
+//        spinTakeRight.setPower(0);
+//        spinTakeLeft.setPower(0);
+//    }
 
     public void daisySpin(double daisy_power, int artifacts) {
         daisy.setPower(daisy_power);
@@ -973,7 +979,7 @@ public class Hardware2026 {
         timer.reset();
 
         while (myOpMode.opModeIsActive() && timer.seconds() < 3.0) { // 3-second safety timeout
-            double current = axlePot.getVoltage();
+            double current = positionSensor.getVoltage();
 
             // Check if we reached target
             if (Math.abs(target - current) < TOLERANCE) {
@@ -1022,6 +1028,31 @@ public class Hardware2026 {
         }
     }
 
+    public void goToNext (){
+        double currentVoltage = positionSensor.getVoltage();
+        int currentPosIndex = getClosestPosition(currentVoltage);
+
+        // If we are between spots, find the mathematically closest index
+        if (currentPosIndex == -1) {
+            double minDiff = Double.MAX_VALUE;
+            for (int i = 0; i < POSITIONS.length; i++) {
+                double diff = Math.abs(currentVoltage - POSITIONS[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    currentPosIndex = i;
+                }
+            }
+        }
+
+
+        // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
+        int nextIndex = (currentPosIndex + 1) % POSITIONS.length;
+
+        // Execute the movement using your one-way logic
+        moveToVoltage(POSITIONS[nextIndex]);
+
+    }
+
     public void runAutoLaunch() {
         if (shootingOrder[0] == COLOR_NONE) return;
 
@@ -1039,10 +1070,10 @@ public class Hardware2026 {
         }
     }
     public void shootBall() {
-        ///open lancher door
+        launcherDoorOpen();
         startLauncher();
         myOpMode.sleep(500);
-        double currentVoltage = axlePot.getVoltage();
+        double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
 
         // If we are between spots, find the mathematically closest index
@@ -1066,6 +1097,7 @@ public class Hardware2026 {
         myOpMode.sleep(500);
 
         stopLauncher();
+        launcherDoorClosed();
         /// close launcher door
     }
 
@@ -1074,12 +1106,12 @@ public class Hardware2026 {
         shooterLeft.setPower(shooterPower);
     }
     public void startLauncher(){
-        shooterRight.setPower(.7);
-        shooterLeft.setPower(.7);
+        shooterRight.setPower(1.0);
+        shooterLeft.setPower(1.0);
     }
     public void stopLauncher(){
         shooterRight.setPower(0);
-        shooterRight.setPower(0);
+        shooterLeft.setPower(0);
     }
 
     public void resetSystem() {
@@ -1110,10 +1142,19 @@ public class Hardware2026 {
     public void updateTelemetry(double volt, int pos) {
         myOpMode.telemetry.addData("Voltage", "%.2f", volt);
         myOpMode.telemetry.addData("Position", pos == -1 ? "MOVING" : (pos + 1));
+        myOpMode.telemetry.addData("Voltage", "%.2f", volt);
+        myOpMode.telemetry.addData("Position", pos == -1 ? "MOVING" : (pos + 1));
+
+
+        myOpMode.telemetry.update();
+
+    }
+    public void allTelemetry() {
         myOpMode.telemetry.addLine("--- Spots ---");
         for (int i=0; i<3; i++) {
             myOpMode.telemetry.addData("Spot " + (i+1), spotLocked[i] ? colorName(spotColors[i]) : "EMPTY");
         }
+
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
         for (AprilTagDetection detection : currentDetections) {
             if (detection.id == 21) {
@@ -1125,18 +1166,12 @@ public class Hardware2026 {
             }
         }
         myOpMode.telemetry.update();
-        myOpMode.telemetry.update();
-
     }
 
-    public String colorName(int c) {
-        if (c == COLOR_GREEN) return "GREEN";
-        if (c == COLOR_PURPLE) return "PURPLE";
-        return "NONE";
-    }
+
 
     public void waitAndSpin() {
-        int nextIndex = (getClosestPosition(axlePot.getVoltage()) + 1) % POSITIONS.length;
+        int nextIndex = (getClosestPosition(positionSensor.getVoltage()) + 1) % POSITIONS.length;
         moveToVoltage(POSITIONS[nextIndex]);
     }
 
@@ -1176,6 +1211,14 @@ public class Hardware2026 {
                 return;
             }
         }
+    }
+
+    public void launcherDoorOpen() {
+        launcherDoor.setPosition(LAUNCHER_DOOR_OPEN);
+    }
+
+    public void launcherDoorClosed() {
+        launcherDoor.setPosition(LAUNCHER_DOOR_CLOSED);
     }
 
     public String autoDecision() {
@@ -1227,5 +1270,14 @@ public class Hardware2026 {
         //wait and spin G, shoot P and P and G
     }
 
+
+
+    public String colorName(int c) {
+        if (c == COLOR_GREEN) return "GREEN";
+        if (c == COLOR_PURPLE) return "PURPLE";
+        else return "NONE";
+    }
 }
+
+
 
