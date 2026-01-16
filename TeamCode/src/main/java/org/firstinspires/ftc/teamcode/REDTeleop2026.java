@@ -28,47 +28,61 @@
  */
 
 package org.firstinspires.ftc.teamcode;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 /**
  * This file contains Teleop
  */
-@Disabled
-@TeleOp(name = "DemoTeleop2026", group = "Linear Opmode")
 
-public class DemoTeleop2026 extends LinearOpMode {
+@TeleOp(name = "REDTeleop2026", group = "Linear Opmode")
+
+public class REDTeleop2026 extends LinearOpMode {
+
+    protected int allianceID = 24;
 
     // Declare OpMode members for each of the 4 motors.
-    DemoHardware2026 robot = new DemoHardware2026(this);
+    Hardware2026 robot = new Hardware2026(this);
     private final ElapsedTime runtime = new ElapsedTime();
 
     // Robot class
     public void runOpMode() {
         robot.init();
-        //robot.startSlide();
+        robot.launcherDoorClosed();
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
+
+        robot.updateAprilTagOrder();
+        long lastNs = System.nanoTime();
+
         waitForStart();
         runtime.reset();
+        robot.moveToVoltage(robot.POSITION_ONE);
 
-        // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
+            String pattern = robot.patternDecision();
 
+            //robot.driveWithOtos();
+//            telemetry.update();
+//            telemetry.addData("Turret Encoder", robot.turntableMotor.getCurrentPosition());
+            double ticksFromZero = robot.turntableMotor.getCurrentPosition() / .43;
+//            telemetry.addData("Angle", ticksFromZero);
+
+            //GAMEPAD 1: Field-centric driving, slowscale, etc.
             if (gamepad1.options) {
                 robot.resetYaw();
             }
-            //Slow scales input
+
             double gp1LY = gamepad1.left_stick_y;
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
 
-            //slow scale 1
             if (gamepad1.right_bumper) {
                 double slowScale = .25;
                 gp1LY *= slowScale;
@@ -76,7 +90,6 @@ public class DemoTeleop2026 extends LinearOpMode {
                 gp1RX *= slowScale;
             }
 
-            //slow scale 2
             if (gamepad1.left_bumper) {
                 double slowScale = .33;
                 gp1LY *= slowScale;
@@ -86,9 +99,65 @@ public class DemoTeleop2026 extends LinearOpMode {
 
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
-            telemetry.update();
+            //GAMEPAD 2
 
+            double dt = robot.getDeltaTime(lastNs);
+            lastNs = System.nanoTime();
 
+            AprilTagDetection tag = robot.getTagById(allianceID);
+
+            if (tag != null && tag.ftcPose != null) {
+                robot.handleTagTracking(tag, dt);
+            } else {
+//                robot.stopTurret();
+//                telemetry.addLine("Tag 24 NOT FOUND");
+                double turntable = -gamepad2.left_stick_x;
+                robot.turntableMotor.setPower(turntable);
+            }
+
+            // Shooter and sorter stuff
+            if (gamepad2.start) robot.resetSystem();
+
+            double currentVoltage = robot.positionSensor.getVoltage();
+            int currentPosIndex = robot.getClosestPosition(currentVoltage);
+
+            robot.updateAprilTagOrder();
+
+            if (currentPosIndex != -1 && !robot.spotLocked[currentPosIndex]) {
+                robot.scanCurrentSpot(currentPosIndex);
+            }
+            if (gamepad2.back) robot.shootBalls();
+            if (gamepad2.a) {
+                robot.launcherDoorOpen();
+                robot.shootColor("GREEN");
+                robot.launcherDoorClosed();
+            }
+            if (gamepad2.x) {
+                robot.launcherDoorOpen();
+                robot.shootColor(2);
+                robot.launcherDoorClosed();
+            }
+            if (gamepad2.y) {
+               robot.goToNext();
+            }
+            if (gamepad2.b) {
+                robot.turntableMotor.setPower(0);
+                robot.shootBall();
+            }
+            if (gamepad2.right_bumper) robot.runAutoLaunch();
+
+            if (gamepad2.left_bumper) robot.launcherDoorOpen();
+            else robot.launcherDoorClosed();
+
+            if (gamepad2.dpad_up) {
+                robot.startLauncherControlled(robot.powerControl());
+            } else{
+                robot.stopLauncher();
+            }
+
+            robot.updateTelemetry(currentVoltage, currentPosIndex);
+            robot.allTelemetry();
         }
+//        robot.stopCamera();
     }
 }

@@ -46,7 +46,9 @@ public class Hardware2026 {
     public CRServo spinTakeRight;
     public CRServo daisy;
     public AnalogInput positionSensor;
-    public NormalizedColorSensor colorSensor;
+    public NormalizedColorSensor colorSensorLeft;
+    public NormalizedColorSensor colorSensorRight;
+
     public Servo launcherDoor;
 
 
@@ -78,18 +80,18 @@ public class Hardware2026 {
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
-    private static final int TARGET_TAG_ID = 24;
+    public int TARGET_TAG_ID = 24;
     private final double BEARING_TOLERANCE = 0.1;
     // Launcher door constants
     public final double LAUNCHER_DOOR_OPEN = 0.5;
-    public final double LAUNCHER_DOOR_CLOSED = 0.3;
+    public final double LAUNCHER_DOOR_CLOSED = 0.4;
 
     // Sorter constants
     static final double TOLERANCE = 0.08;  // Increased slightly for one-way reliability
     static final double SERVO_POWER = -0.7; // Speed for one-way travel
     static final double POSITION_ONE = 0.0;
-    static final double POSITION_TWO = 0.83;
-    static final double POSITION_THREE = 1.64;
+    static final double POSITION_TWO = 1.84;
+    static final double POSITION_THREE = 0.88;
     static final double[] POSITIONS = {POSITION_ONE, POSITION_TWO, POSITION_THREE};
     public static final int COLOR_NONE = 0, COLOR_GREEN = 1, COLOR_PURPLE = 2;
     private static final float GREEN_HUE_MIN = 85, GREEN_HUE_MAX = 165;
@@ -136,7 +138,8 @@ public class Hardware2026 {
         daisy = myOpMode.hardwareMap.get(CRServo.class, "daisy");
         launcherDoor = myOpMode.hardwareMap.get(Servo.class, "launcherDoor");
         positionSensor = myOpMode.hardwareMap.get(AnalogInput.class, "position");
-        colorSensor = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color");
+        colorSensorLeft = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "left_color_sensor");
+        colorSensorRight = myOpMode.hardwareMap.get(NormalizedColorSensor.class, "right_color_sensor");
 
 
         turntableMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -769,12 +772,12 @@ public class Hardware2026 {
     }
 
     // Decode 2026 ----------------------------------------------------------------------------
-    public static class PID {
+    public class PID {
         private double kP, kI, kD;
         private double integral = 0.0;
         private double lastError = 0.0;
         private double derivativeFilter = 0.0;
-        private final double derivTau = 0.02; // seconds
+        private final double derivTau = 0.02;
 
         public PID(double kP, double kI, double kD) {
             this.kP = kP;
@@ -789,8 +792,8 @@ public class Hardware2026 {
 
             double rawDeriv = (error - lastError) / dt;
             double alpha = dt / (derivTau + dt);
-
             derivativeFilter += alpha * (rawDeriv - derivativeFilter);
+
             lastError = error;
 
             return (kP * error) + (kI * integral) + (kD * derivativeFilter);
@@ -803,66 +806,73 @@ public class Hardware2026 {
         }
 
         public void clampIntegral(double min, double max) {
-            if (integral > max) integral = max;
-            if (integral < min) integral = min;
+            integral = Math.max(min, Math.min(max, integral));
         }
     }
-    private PID turretPID = new PID(0.006, 0.00005, 0.00045);
+
+//MOTORS ETC
+
+    private PID turnPID = new PID(0.006, 0.00005, 0.00045);
+
+    private double filteredBearing = 0.0;
+
+//CONSTANTS
 
     private static final double MAX_POWER = 0.20;
     private static final double DEADBAND_DEG = 4.0;
     private static final double LPF_ALPHA = 0.6;
-    private double filteredBearing = 0.0;
-    private long lastNs = System.nanoTime();
-    public boolean updateTurretToAprilTag(int tagId) {
 
-        long nowNs = System.nanoTime();
-        double dt = (nowNs - lastNs) / 1e9;
-        lastNs = nowNs;
-
-        if (dt > 0.1) {
-            turretPID.reset();
-            return false;
-        }
-
-        List<AprilTagDetection> detections = aprilTag.getDetections();
-        AprilTagDetection target = null;
-
-        for (AprilTagDetection d : detections) {
-            if (d.id == tagId) {
-                target = d;
-                break;
-            }
-        }
-
-        if (target == null || target.ftcPose == null) {
-            turntableMotor.setPower(0.0);
-            turretPID.reset();
-            return false;
-        }
-
-        double rawBearing = target.ftcPose.bearing;
-
-        filteredBearing =
-                (LPF_ALPHA * filteredBearing)
-                        + ((1.0 - LPF_ALPHA) * rawBearing);
-
+    public void handleTagTracking(AprilTagDetection tag, double dt) {
+        double rawBearing = tag.ftcPose.bearing;
+        filteredBearing = lowPassFilter(filteredBearing, rawBearing);
         double error = filteredBearing;
 
         if (Math.abs(error) <= DEADBAND_DEG) {
-            turntableMotor.setPower(0.0);
-            turretPID.reset();
-            return true;
+            stopTurret();
+//            myOpMode.telemetry.addLine("CENTERED ✔");
+        } else {
+            applyPID(error, dt);
         }
 
-        double power = turretPID.update(error, dt);
-        turretPID.clampIntegral(-100.0, 100.0);
+//        myOpMode.telemetry.addData("rawBearing", rawBearing);
+//        myOpMode.telemetry.addData("filteredBearing", filteredBearing);
+    }
 
-        power = Math.max(-MAX_POWER, Math.min(MAX_POWER, power));
+    public void applyPID(double error, double dt) {
+        double power = turnPID.update(error, dt);
+        turnPID.clampIntegral(-100.0, 100.0);
+
+        power = clamp(power, -MAX_POWER, MAX_POWER);
         if (Math.abs(power) < 0.02) power = 0.0;
 
         turntableMotor.setPower(power);
-        return false;
+        myOpMode.telemetry.addData("pidPower", power);
+    }
+
+    public void stopTurret() {
+        turntableMotor.setPower(0.0);
+        turnPID.reset();
+    }
+
+
+    public AprilTagDetection getTagById(int id) {
+        List<AprilTagDetection> detections = aprilTag.getDetections();
+        for (AprilTagDetection d : detections) {
+            if (d.id == id) return d;
+        }
+        return null;
+    }
+
+    public double lowPassFilter(double previous, double current) {
+        return (LPF_ALPHA * previous) + ((1.0 - LPF_ALPHA) * current);
+    }
+
+    public double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    public double getDeltaTime(long lastNs) {
+        return (System.nanoTime() - lastNs) / 1e9;
     }
     public void updateTurntableToFaceTarget() {
         double TARGET_FIELD_X = 5.5*24;   // your target X in field coordinates (inches or units)
@@ -915,11 +925,11 @@ public class Hardware2026 {
             turntableMotor.setPower(0); // stop if within tolerance
         }
 
-        myOpMode.telemetry.addData("Turret Angle (deg)", desiredAngleDegrees);
-        myOpMode.telemetry.addData("Turret Target Counts", targetCounts);
-        myOpMode.telemetry.addData("Turret Current Counts", currentCounts);
-        myOpMode.telemetry.addData("Within Tolerance", Math.abs(targetCounts - currentCounts) <= toleranceCounts);
-        myOpMode.telemetry.update();
+//        myOpMode.telemetry.addData("Turret Angle (deg)", desiredAngleDegrees);
+//        myOpMode.telemetry.addData("Turret Target Counts", targetCounts);
+//        myOpMode.telemetry.addData("Turret Current Counts", currentCounts);
+//        myOpMode.telemetry.addData("Within Tolerance", Math.abs(targetCounts - currentCounts) <= toleranceCounts);
+//        myOpMode.telemetry.update();
     }
 
     public static final double MOTOR_ENCODER_PPR = 7.0;
@@ -974,6 +984,27 @@ public class Hardware2026 {
         turntableMotor.setPower(intake_power);
     }
 
+    public double powerControl() {
+        SparkFunOTOS.Pose2D pos = myOtos.getPosition(); // Get position
+
+        double yPos = pos.y;
+        double power = .8;
+
+        if (yPos>=0 && yPos <=10) {
+            power = 1;
+        }
+        else if (yPos>=30 && yPos <=40) {
+            power = .78;
+        }
+        else if (yPos>=30 && yPos <=50) {
+            power = .5;
+        }
+        else {
+            power = .8;
+        }
+        return power;
+    }
+
     public void moveToVoltage(double target) {
         ElapsedTime timer = new ElapsedTime();
         timer.reset();
@@ -991,8 +1022,8 @@ public class Hardware2026 {
 
             if (myOpMode.gamepad1.left_bumper) break; // Manual emergency stop
 
-            myOpMode.telemetry.addData("Seeking Target", target);
-            myOpMode.telemetry.addData("Current Volt", "%.3f", current);
+//            myOpMode.telemetry.addData("Seeking Target", target);
+//            myOpMode.telemetry.addData("Current Volt", "%.3f", current);
             myOpMode.telemetry.update();
         }
         daisy.setPower(0);
@@ -1006,7 +1037,7 @@ public class Hardware2026 {
     }
 
     public void scanCurrentSpot(int index) {
-        NormalizedRGBA c = colorSensor.getNormalizedColors();
+        NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
         float[] hsv = new float[3];
         Color.colorToHSV(c.toColor(), hsv);
         float hue = hsv[0];
@@ -1028,6 +1059,27 @@ public class Hardware2026 {
         }
     }
 
+    public String returnCurrentSpot() {
+        NormalizedRGBA cLeft = colorSensorLeft.getNormalizedColors();
+        float[] hsvLeft = new float[3];
+        Color.colorToHSV(cLeft.toColor(), hsvLeft);
+        float hueLeft = hsvLeft[0];
+
+        NormalizedRGBA cRight = colorSensorRight.getNormalizedColors();
+        float[] hsvRight = new float[3];
+        Color.colorToHSV(cRight.toColor(), hsvRight);
+        float hueRight = hsvRight[0];
+
+        String color = "";
+
+        if ((hueLeft >= GREEN_HUE_MIN && hueLeft <= GREEN_HUE_MAX)||(hueRight >= GREEN_HUE_MIN && hueRight <= GREEN_HUE_MAX)) {
+            color = "GREEN";
+
+        } else if ((hueLeft >= PURPLE_HUE_MIN && hueLeft <= PURPLE_HUE_MAX)||(hueRight >= PURPLE_HUE_MIN && hueRight <= PURPLE_HUE_MAX)) {
+            color = "PURPLE";
+        }
+        return color;
+    }
     public void goToNext (){
         double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
@@ -1047,32 +1099,14 @@ public class Hardware2026 {
 
         // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
         int nextIndex = (currentPosIndex + 1) % POSITIONS.length;
+        int lastIndex = (currentPosIndex - 1) % POSITIONS.length;
 
         // Execute the movement using your one-way logic
         moveToVoltage(POSITIONS[nextIndex]);
 
     }
-
-    public void runAutoLaunch() {
-        if (shootingOrder[0] == COLOR_NONE) return;
-
-        for (int targetColor : shootingOrder) {
-            for (int i = 0; i < 3; i++) {
-                if (spotColors[i] == targetColor && spotLocked[i]) {
-                    moveToVoltage(POSITIONS[i]);
-                    shootBall();
-                    myOpMode.sleep(800);
-                    spotColors[i] = COLOR_NONE;
-                    spotLocked[i] = false;
-                    break;
-                }
-            }
-        }
-    }
-    public void shootBall() {
-        launcherDoorOpen();
-        startLauncher();
-        myOpMode.sleep(500);
+    public void goToLast (){
+        daisy.setPower(0);
         double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
 
@@ -1090,6 +1124,40 @@ public class Hardware2026 {
 
 
         // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
+        int lastIndex = (currentPosIndex - 1) % POSITIONS.length;
+
+        // Execute the movement using your one-way logic
+        moveToVoltage(POSITIONS[lastIndex]);
+
+    }
+
+
+    public void shootBall() {
+        launcherDoorOpen();
+        startLauncherControlled(powerControl());
+        myOpMode.sleep(500);
+        double currentVoltage = positionSensor.getVoltage();
+        int currentPosIndex = getClosestPosition(currentVoltage);
+
+        // If we are between spots, find the mathematically closest index
+        if (currentPosIndex == -1) {
+            double minDiff = Double.MAX_VALUE;
+            for (int i = 0; i < POSITIONS.length; i++) {
+                double diff = Math.abs(currentVoltage - POSITIONS[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    currentPosIndex = i;
+                }
+            }
+
+        }
+        if (currentPosIndex != -1) {
+            spotColors[currentPosIndex] = COLOR_NONE;
+            spotLocked[currentPosIndex] = false;
+        }
+
+
+        // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
         int nextIndex = (currentPosIndex + 1) % POSITIONS.length;
 
         // Execute the movement using your one-way logic
@@ -1101,13 +1169,91 @@ public class Hardware2026 {
         /// close launcher door
     }
 
-    public void shootArtifact(double shooterPower) {
-        shooterRight.setPower(shooterPower);
-        shooterLeft.setPower(shooterPower);
+    public void shootBallControlled(double power) {
+        launcherDoorOpen();
+        startLauncherControlled(power);
+        myOpMode.sleep(500);
+        double currentVoltage = positionSensor.getVoltage();
+        int currentPosIndex = getClosestPosition(currentVoltage);
+
+        // If we are between spots, find the mathematically closest index
+        if (currentPosIndex == -1) {
+            double minDiff = Double.MAX_VALUE;
+            for (int i = 0; i < POSITIONS.length; i++) {
+                double diff = Math.abs(currentVoltage - POSITIONS[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    currentPosIndex = i;
+                }
+            }
+
+        }
+        if (currentPosIndex != -1) {
+            spotColors[currentPosIndex] = COLOR_NONE;
+            spotLocked[currentPosIndex] = false;
+        }
+
+
+        // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
+        int nextIndex = (currentPosIndex + 1) % POSITIONS.length;
+
+        // Execute the movement using your one-way logic
+        moveToVoltage(POSITIONS[nextIndex]);
+        myOpMode.sleep(500);
+
+        stopLauncher();
+        launcherDoorClosed();
+        /// close launcher door
+    }
+    public void shootBalls() {
+        launcherDoorOpen();
+        startLauncherControlled(powerControl());
+        myOpMode.sleep(500);
+        double currentVoltage = positionSensor.getVoltage();
+        int currentPosIndex = getClosestPosition(currentVoltage);
+
+        // If we are between spots, find the mathematically closest index
+        if (currentPosIndex == -1) {
+            double minDiff = Double.MAX_VALUE;
+            for (int i = 0; i < POSITIONS.length; i++) {
+                double diff = Math.abs(currentVoltage - POSITIONS[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    currentPosIndex = i;
+                }
+            }
+
+        }
+        if (currentPosIndex != -1) {
+            spotColors[currentPosIndex] = COLOR_NONE;
+            spotLocked[currentPosIndex] = false;
+        }
+
+        double targetVoltage = currentVoltage + 3 * (POSITIONS[1] - POSITIONS[0]);
+// assuming positions are evenly spaced, difference between spots
+
+        moveToVoltage(targetVoltage);
+        myOpMode.sleep(500);
+//
+//        // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
+//        int nextIndex = (currentPosIndex + 3) % POSITIONS.length;
+//
+//        // Execute the movement using your one-way logic
+//        moveToVoltage(POSITIONS[nextIndex]);
+//        myOpMode.sleep(500);
+
+        stopLauncher();
+        launcherDoorClosed();
+        /// close launcher door
     }
     public void startLauncher(){
-        shooterRight.setPower(1.0);
-        shooterLeft.setPower(1.0);
+        shooterRight.setPower(1);
+        shooterLeft.setPower(1);
+    }
+
+    public void startLauncherControlled(double power){
+        shooterRight.setPower(power);
+        shooterLeft.setPower(power);
     }
     public void stopLauncher(){
         shooterRight.setPower(0);
@@ -1145,11 +1291,6 @@ public class Hardware2026 {
         myOpMode.telemetry.addData("Voltage", "%.2f", volt);
         myOpMode.telemetry.addData("Position", pos == -1 ? "MOVING" : (pos + 1));
 
-
-        myOpMode.telemetry.update();
-
-    }
-    public void allTelemetry() {
         myOpMode.telemetry.addLine("--- Spots ---");
         for (int i=0; i<3; i++) {
             myOpMode.telemetry.addData("Spot " + (i+1), spotLocked[i] ? colorName(spotColors[i]) : "EMPTY");
@@ -1165,6 +1306,16 @@ public class Hardware2026 {
                 myOpMode.telemetry.addData("Pattern", "PPG");
             }
         }
+        driveWithOtos();
+        myOpMode.telemetry.addData("Launcher Speed:", shooterLeft.getPower());
+        myOpMode.telemetry.addData("Launcher Speed:", shooterRight.getPower());
+        myOpMode.telemetry.addData("Launcher Speed:", powerControl());
+
+        myOpMode.telemetry.update();
+
+    }
+    public void allTelemetry() {
+
         myOpMode.telemetry.update();
     }
 
@@ -1175,42 +1326,159 @@ public class Hardware2026 {
         moveToVoltage(POSITIONS[nextIndex]);
     }
 
-    public void shootPurple() {
-        for (int i = 0; i < POSITIONS.length; i++) {
-            if (spotLocked[i] && spotColors[i] == COLOR_PURPLE) {
 
-                // Move to the purple artifact
-                moveToVoltage(POSITIONS[i]);
-
-                // Shoot it
+    public void shootColor(String color) {
+        if (returnCurrentSpot().equals(color)) {
+            shootBall();
+            return;
+        } else {
+            launcherDoorClosed();
+            waitAndSpin();
+            if (returnCurrentSpot().equals(color)) { // PROBLEM
                 shootBall();
-
-                // Clear that spot so it doesn't get reused
-                spotColors[i] = COLOR_NONE;
-                spotLocked[i] = false;
-
                 return;
+            } else {
+                launcherDoorClosed();
+                waitAndSpin();
+                if (returnCurrentSpot().equals(color)) {
+                    shootBall();
+                } else {
+                    launcherDoorClosed();
+                    waitAndSpin();
+                    if (returnCurrentSpot().equals(color)) {
+                        shootBall();
+                    }
+                }
             }
         }
     }
 
-    public void shootGreen() {
-        for (int i = 0; i < POSITIONS.length; i++) {
-            if (spotLocked[i] && spotColors[i] == COLOR_GREEN) {
+//    public void runAutoLaunch() {
+//        if (shootingOrder[0] == COLOR_NONE) return;
+//
+//        for (int targetColor : shootingOrder) {
+//            for (int i = 0; i < 3; i++) {
+//                if (spotColors[i] == targetColor && spotLocked[i]) {
+//                    moveToVoltage(POSITIONS[i]);
+//                    shootBall();
+//                    myOpMode.sleep(800);
+//                    spotColors[i] = COLOR_NONE;
+//                    spotLocked[i] = false;
+//                    break;
+//                }
+//            }
+//        }
+//    }
 
-                // Move to the purple artifact
-                moveToVoltage(POSITIONS[i]);
+    public void runAutoLaunch() {
+        if (shootingOrder[0] == COLOR_NONE) return;
 
-                // Shoot it
-                shootBall();
+        for (int targetColor : shootingOrder) {
+            ElapsedTime timer = new ElapsedTime();
+            timer.reset();
 
-                // Clear that spot so it doesn't get reused
-                spotColors[i] = COLOR_NONE;
-                spotLocked[i] = false;
+            daisy.setPower(SERVO_POWER); // always forward
 
-                return;
+            boolean colorFound = false;
+
+            while (myOpMode.opModeIsActive() && timer.seconds() < 4.0 && !colorFound) { // safety timeout
+                double voltage = positionSensor.getVoltage();
+                int posIndex = getClosestPosition(voltage);
+
+                // Only consider detection if we're at a valid position
+                if (posIndex != -1 && spotLocked[posIndex] == false) {
+                    NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
+                    float[] hsv = new float[3];
+                    Color.colorToHSV(c.toColor(), hsv);
+                    float hue = hsv[0];
+
+                    boolean greenDetected =
+                            targetColor == COLOR_GREEN &&
+                                    hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX;
+
+                    boolean purpleDetected =
+                            targetColor == COLOR_PURPLE &&
+                                    hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX;
+
+                    if (greenDetected || purpleDetected) {
+                        daisy.setPower(0);
+
+                        // Lock this spot
+                        spotColors[posIndex] = targetColor;
+                        spotLocked[posIndex] = true;
+
+                        // Move to voltage for this position
+                        moveToVoltage(POSITIONS[posIndex]);
+
+                        // Shoot one ball
+                        shootBall();
+
+                        // Clear after shot
+                        spotColors[posIndex] = COLOR_NONE;
+                        spotLocked[posIndex] = false;
+
+                        colorFound = true;
+                        break;
+                    }
+                }
+
+                // Telemetry for debugging
+                myOpMode.telemetry.addData("Seeking", colorName(targetColor));
+                myOpMode.telemetry.addData("Voltage", "%.2f", voltage);
+                myOpMode.telemetry.update();
             }
+
+            daisy.setPower(0); // safety stop if timed out
         }
+    }
+
+    public void shootColor(int targetColor) {
+        ElapsedTime timer = new ElapsedTime();
+        timer.reset();
+
+        daisy.setPower(SERVO_POWER); // always forward
+
+        while (myOpMode.opModeIsActive() && timer.seconds() < 4.0) { // safety timeout
+            double voltage = positionSensor.getVoltage();
+            int posIndex = getClosestPosition(voltage);
+
+            // Only consider detection if we're at a valid position
+            if (posIndex != -1) {
+                NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
+                float[] hsv = new float[3];
+                Color.colorToHSV(c.toColor(), hsv);
+                float hue = hsv[0];
+
+                boolean greenDetected =
+                        targetColor == COLOR_GREEN &&
+                                hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX;
+
+                boolean purpleDetected =
+                        targetColor == COLOR_PURPLE &&
+                                hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX;
+
+                if (greenDetected || purpleDetected) {
+                    daisy.setPower(0);
+
+                    // Lock this spot
+                    spotColors[posIndex] = targetColor;
+                    spotLocked[posIndex] = true;
+
+                    // Shoot one ball
+                    shootBall();
+
+                    // Clear after shot
+
+                    return;
+                }
+            }
+
+            myOpMode.telemetry.addData("Seeking", colorName(targetColor));
+            myOpMode.telemetry.addData("Voltage", "%.2f", voltage);
+            myOpMode.telemetry.update();
+        }
+
+        daisy.setPower(0); // timeout safety stop
     }
 
     public void launcherDoorOpen() {
@@ -1221,7 +1489,7 @@ public class Hardware2026 {
         launcherDoor.setPosition(LAUNCHER_DOOR_CLOSED);
     }
 
-    public String autoDecision() {
+    public String patternDecision() {
         String pattern = "";
         List<AprilTagDetection> detections = aprilTag.getDetections();
 
@@ -1244,29 +1512,30 @@ public class Hardware2026 {
         return pattern;
     }
 
+
     //autonomous stuff!
-    public void autoGPP() {
+    public void autoGPP(double power) {
         //just shoot all three
-        shootBall();
-        shootBall();
-        shootBall();
+        shootBallControlled(power);
+        shootBallControlled(power);
+        shootBallControlled(power);
     }
 
-    public void autoPGP() {
+    public void autoPGP(double power) {
         waitAndSpin();
-        shootBall();
+        shootBallControlled(power);
         waitAndSpin();
-        shootBall();
+        shootBallControlled(power);
         waitAndSpin();
-        shootBall();
+        shootBallControlled(power);
         //wait and spin G, shoot P, wait and spin P, shoot G, empty spot spin, shoot P
     }
 
-    public void autoPPG() {
+    public void autoPPG(double power) {
         waitAndSpin();
-        shootBall();
-        shootBall();
-        shootBall();
+        shootBallControlled(power);
+        shootBallControlled(power);
+        shootBallControlled(power);
         //wait and spin G, shoot P and P and G
     }
 

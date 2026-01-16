@@ -16,20 +16,33 @@ public class autoFarBlue extends LinearOpMode {
         telemetry.update();
         robot.resetYaw();
 
-        robot.driveVectorByEncoder(1, -5.3, 0, -20, 30);
-        if (robot.autoDecision().equals("GPP")) {
-            robot.autoGPP();
-        } else if (robot.autoDecision().equals("PGP")) {
-            robot.autoPGP();
-        } else if (robot.autoDecision().equals("PPG")) {
-            robot.autoPPG();
+        robot.driveVectorByEncoder(1, 5.4, 0, -30, 30);
+
+        robot.setTurntableAngle(-53, 1);
+        robot.turntableMotor.setPower(0);
+        if (robot.patternDecision().equals("GPP")) {
+            robot.autoGPP(1);
+            telemetry.addLine("Pattern: GPP");
+        } else if (robot.patternDecision().equals("PGP")) {
+            robot.autoPGP(1);
+            telemetry.addLine("Pattern: PGP");
+        } else if (robot.patternDecision().equals("PPG")) {
+            robot.autoPPG(1);
+            telemetry.addLine("Pattern: PPG");
+        } else if (robot.patternDecision().equals("")){
+            robot.shootBalls();
+            telemetry.addLine("Pattern: NONE");
         }
+
+
 //        robot.shootArtifact(1);
 //        sleep(500);
 //        robot.daisySpin(1 ,5);
 //        sleep(500);
 //        robot.shootArtifact(0);
-        robot.driveVectorByEncoder(1, -3, 0, 0, 30);
-    }
+
+        robot.driveVectorByEncoder(1, 3, 0, -37, 30);
 
     }
+
+}
