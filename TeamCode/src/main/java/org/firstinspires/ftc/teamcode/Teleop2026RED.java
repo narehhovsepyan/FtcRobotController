@@ -28,20 +28,22 @@
  */
 
 package org.firstinspires.ftc.teamcode;
+
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 /**
  * This file contains Teleop
  */
 
-@TeleOp(name = "BLUETeleop2026", group = "Linear Opmode")
+@TeleOp(name = "RED", group = "Linear Opmode")
 
-public class Teleop2026 extends LinearOpMode {
+public class Teleop2026RED extends LinearOpMode {
 
-    protected int allianceID = 20;
+    protected int allianceID = 24;
 
     // Declare OpMode members for each of the 4 motors.
     Hardware2026 robot = new Hardware2026(this);
@@ -65,12 +67,7 @@ public class Teleop2026 extends LinearOpMode {
 
         while (opModeIsActive()) {
             String pattern = robot.patternDecision();
-
-            //robot.driveWithOtos();
-//            telemetry.update();
-//            telemetry.addData("Turret Encoder", robot.turntableMotor.getCurrentPosition());
             double ticksFromZero = robot.turntableMotor.getCurrentPosition() / .43;
-//            telemetry.addData("Angle", ticksFromZero);
 
             //GAMEPAD 1: Field-centric driving, slowscale, etc.
             if (gamepad1.options) {
@@ -107,8 +104,6 @@ public class Teleop2026 extends LinearOpMode {
             if (tag != null && tag.ftcPose != null) {
                 robot.handleTagTracking(tag, dt);
             } else {
-//                robot.stopTurret();
-//                telemetry.addLine("Tag 24 NOT FOUND");
                 double turntable = -gamepad2.left_stick_x;
                 robot.turntableMotor.setPower(turntable);
             }
@@ -124,23 +119,29 @@ public class Teleop2026 extends LinearOpMode {
             if (currentPosIndex != -1 && !robot.spotLocked[currentPosIndex]) {
                 robot.scanCurrentSpot(currentPosIndex);
             }
-            if (gamepad2.back) robot.shootBalls();
+            if (gamepad2.back) {
+                robot.turntableMotor.setPower(0);
+                robot.shootBallsControlled(robot.powerControl(allianceID));
+            }
             if (gamepad2.a) {
+                robot.turntableMotor.setPower(0);
                 robot.launcherDoorOpen();
                 robot.shootColor("GREEN");
                 robot.launcherDoorClosed();
             }
             if (gamepad2.x) {
+                robot.turntableMotor.setPower(0);
                 robot.launcherDoorOpen();
                 robot.shootColor(2);
                 robot.launcherDoorClosed();
             }
             if (gamepad2.y) {
-               robot.goToNext();
+                robot.turntableMotor.setPower(0);
+                robot.goToNext();
             }
             if (gamepad2.b) {
                 robot.turntableMotor.setPower(0);
-                robot.shootBall();
+                robot.shootBallControlled(robot.powerControl(allianceID));
             }
             if (gamepad2.right_bumper) robot.runAutoLaunch();
 
@@ -148,7 +149,7 @@ public class Teleop2026 extends LinearOpMode {
             else robot.launcherDoorClosed();
 
             if (gamepad2.dpad_up) {
-                robot.startLauncherControlled(robot.powerControl());
+                robot.startLauncher();
             } else{
                 robot.stopLauncher();
             }

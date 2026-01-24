@@ -28,22 +28,20 @@
  */
 
 package org.firstinspires.ftc.teamcode;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
-
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 /**
  * This file contains Teleop
  */
 
-@TeleOp(name = "REDTeleop2026", group = "Linear Opmode")
+@TeleOp(name = "BLUE", group = "Linear Opmode")
 
-public class REDTeleop2026 extends LinearOpMode {
+public class Teleop2026BLUE extends LinearOpMode {
 
-    protected int allianceID = 24;
+    protected int allianceID = 20;
 
     // Declare OpMode members for each of the 4 motors.
     Hardware2026 robot = new Hardware2026(this);
@@ -150,7 +148,7 @@ public class REDTeleop2026 extends LinearOpMode {
             else robot.launcherDoorClosed();
 
             if (gamepad2.dpad_up) {
-                robot.startLauncherControlled(robot.powerControl());
+                robot.startLauncher();
             } else{
                 robot.stopLauncher();
             }

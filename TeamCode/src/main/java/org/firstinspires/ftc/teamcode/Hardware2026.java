@@ -12,6 +12,7 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -34,24 +35,34 @@ public class Hardware2026 {
     /* Declare OpMode members. */
     private LinearOpMode myOpMode = null;   // gain access to methods in the calling OpMode.
 
-    // Define Motor and Servo objects  (Make them private so they can't be accessed externally)
+    //---------------------------------------Drive-Motors-----------------------------------------//
     private DcMotor leftFrontDrive = null;
     private DcMotor leftBackDrive = null;
     private DcMotor rightFrontDrive = null;
     private DcMotor rightBackDrive = null;
+
+    //-------------------------------------Non-Drive-Mechanisms-----------------------------------//
+
+    //---TURNTABLE---//
     public DcMotor turntableMotor;
-    public DcMotor shooterRight;
-    public DcMotor shooterLeft;
+
+    //---LAUNCHER---//
+    public DcMotorEx shooterRight;
+    public DcMotorEx shooterLeft;
+    public Servo launcherDoor;
+
+    //---INTAKE--//
     public CRServo spinTakeLeft;
     public CRServo spinTakeRight;
+
+    //---DAISY---//
     public CRServo daisy;
     public AnalogInput positionSensor;
     public NormalizedColorSensor colorSensorLeft;
     public NormalizedColorSensor colorSensorRight;
 
-    public Servo launcherDoor;
 
-
+    //----------------------------------------------IMU-------------------------------------------//
     // Define IMU object and headings (Make it private so it can't be accessed externally)
     public IMU imu = null;
 
@@ -61,41 +72,64 @@ public class Hardware2026 {
     private double headingError = 0;
     private double targetHeading = 0;
 
-    // Define camera things
+    //-----------------------------------------AprilTags------------------------------------------//
     private AprilTagProcessor aprilTag;
-    private AprilTagWebcam aprilTagWebcam = new AprilTagWebcam();
     private VisionPortal visionPortal;
     private AprilTagDetection lastDetection = null;
-    public static final boolean USE_WEBCAM = true;
 
     // Run time (public)
     private final ElapsedTime runtime = new ElapsedTime();
+
+    //-------------------------------------Drive-Control------------------------------------------//
+
+    //---CONSTANTS---//
     static final double COUNTS_PER_MOTOR_REV = 1120;    // eg: our Motor Encoder
     static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
     static final double WHEEL_DIAMETER_INCHES = 100.0 / 25.4;     // For figuring circumference
     static final double COUNTS_PER_INCH = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
             (WHEEL_DIAMETER_INCHES * Math.PI);
-//    static final double COUNTS_PER_DEGREE = 39.0/90.0;
+
+    //    static final double COUNTS_PER_DEGREE = 39.0/90.0;
     private double turnSpeed = 0;
     static final double P_TURN_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double P_DRIVE_GAIN = 0.02;     // Larger is more responsive, but also less stable
     static final double HEADING_THRESHOLD = 5.0;
     public int TARGET_TAG_ID = 24;
     private final double BEARING_TOLERANCE = 0.1;
-    // Launcher door constants
+
+
+    //--------------------------------Launcher-Door-Constants-------------------------------------//
     public final double LAUNCHER_DOOR_OPEN = 0.5;
     public final double LAUNCHER_DOOR_CLOSED = 0.4;
 
-    // Sorter constants
+    //-----------------------------------Turntable-Constants--------------------------------------//
+
+    private double filteredBearing = 0.0;
+    private static final double MAX_POWER = 0.20;
+    private static final double DEADBAND_DEG = 4.0;
+    private static final double LPF_ALPHA = 0.6;
+
+    public static final double MOTOR_ENCODER_PPR = 7.0;
+    public static final double GEAR_RATIO = 90.0 / 15.0; // 6.0
+    public static final double COUNTS_PER_OUTPUT_REV = MOTOR_ENCODER_PPR * GEAR_RATIO; // 42
+    public static final double COUNTS_PER_DEGREE = COUNTS_PER_OUTPUT_REV / 360.0; // 0.1166667
+
+
+    //------------------------------------Daisy-Constants-----------------------------------------//
     static final double TOLERANCE = 0.08;  // Increased slightly for one-way reliability
+
     static final double SERVO_POWER = -0.7; // Speed for one-way travel
+
     static final double POSITION_ONE = 0.0;
     static final double POSITION_TWO = 1.84;
     static final double POSITION_THREE = 0.88;
     static final double[] POSITIONS = {POSITION_ONE, POSITION_TWO, POSITION_THREE};
+
     public static final int COLOR_NONE = 0, COLOR_GREEN = 1, COLOR_PURPLE = 2;
+
     private static final float GREEN_HUE_MIN = 85, GREEN_HUE_MAX = 165;
     private static final float PURPLE_HUE_MIN = 225, PURPLE_HUE_MAX = 365;
+
     int[] spotColors = {COLOR_NONE, COLOR_NONE, COLOR_NONE};
     boolean[] spotLocked = {false, false, false};
     int[] shootingOrder = {COLOR_NONE, COLOR_NONE, COLOR_NONE};
@@ -103,14 +137,17 @@ public class Hardware2026 {
     int greenCount = 0, purpleCount = 0;
     final int STABLE_NEEDED = 5;
 
-    // Create an instance of the otos sensor
-    SparkFunOTOS myOtos;
-
-    // daisy things
     ElapsedTime daisyTimer = new ElapsedTime();
     boolean daisyIsSpinning = false;
     int daisySpinDuration = 0;
 
+    boolean daisyMoving = false;
+    double daisyTarget = 0;
+
+    //-----------------------------------------------OTOS-----------------------------------------//
+    SparkFunOTOS myOtos;
+
+    //--------------------------------------------------------------------------------------------//
     // Define a constructor that allows the OpMode to pass a reference to itself.
     public Hardware2026(LinearOpMode opmode) {
         myOpMode = opmode;
@@ -123,6 +160,7 @@ public class Hardware2026 {
      * All of the hardware devices are accessed via the hardware map, and initialized.
      */
 
+    //------------------------------------------INIT----------------------------------------------//
     public void init() {
 
         // Define and Initialize Motors (note: need to use reference to actual OpMode).
@@ -131,8 +169,8 @@ public class Hardware2026 {
         rightFrontDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_front_drive");//port0
         rightBackDrive = myOpMode.hardwareMap.get(DcMotor.class, "right_back_drive");//port1
         turntableMotor = myOpMode.hardwareMap.get(DcMotor.class, "camera_motor");//port2
-        shooterRight = myOpMode.hardwareMap.get(DcMotor.class, "shooter_right");//port1
-        shooterLeft = myOpMode.hardwareMap.get(DcMotor.class, "shooter_left");//port0
+        shooterRight = myOpMode.hardwareMap.get(DcMotorEx.class, "shooter_right");//port1
+        shooterLeft = myOpMode.hardwareMap.get(DcMotorEx.class, "shooter_left");//port0
 //        spinTakeRight = myOpMode.hardwareMap.get(CRServo.class, "spin_take_right");
 //        spinTakeLeft = myOpMode.hardwareMap.get(CRServo.class, "spin_take_left");
         daisy = myOpMode.hardwareMap.get(CRServo.class, "daisy");
@@ -194,19 +232,13 @@ public class Hardware2026 {
         builder.setCamera(myOpMode.hardwareMap.get(WebcamName.class, "Webcam 1"));
         builder.addProcessor(aprilTag);
 
-//        aprilTag = AprilTagProcessor.easyCreateWithDefaults();
-//        visionPortal = VisionPortal.easyCreateWithDefaults(
-//                myOpMode.hardwareMap.get(WebcamName.class, "Webcam 1"),
-//                aprilTag
-//        );
 
         visionPortal = builder.build();
 
-        // FIX: you forgot this!
-        aprilTagWebcam = new AprilTagWebcam();
 
     }
 
+    //---------------------------------------AprilTags--------------------------------------------//
     public AprilTagDetection getLatestDetection() {
         List<AprilTagDetection> detections = aprilTag.getDetections();
         if (detections.size() > 0)
@@ -245,7 +277,7 @@ public class Hardware2026 {
         }
     }
 
-    // OTOS!
+    //--------------------------------------OTOS-Methods------------------------------------------//
     public void configureOtos() {
         myOpMode.telemetry.addLine("Configuring OTOS...");
         myOpMode.telemetry.update();
@@ -282,7 +314,6 @@ public class Hardware2026 {
         myOpMode.telemetry.update();
     }
 
-
     private double calculatePID(double error, double prevError, double integral, double kP, double kI, double kD, double loopDelay) {
         double derivative = (error - prevError) / loopDelay; //this is in seconds- should it be
         // Clip derivative to prevent spikes
@@ -291,7 +322,6 @@ public class Hardware2026 {
         Log.i("FTC18 calculatePID", String.format("PID output- error %.2f, integral: %.2f, derivative: %.2f, output: %.2f", error, integral, derivative, output));
         return output;
     }
-
 
     public void driveByOtos(double distanceToTravelX, double distanceToTravelY, double targetHeadingDegrees, double timeout) {
         runtime.reset();
@@ -366,8 +396,6 @@ public class Hardware2026 {
             toTravelPrevA = toTravelD;
 
 
-
-
             double errorX = toTravelT.getX();
             double errorY = toTravelT.getY();
             double errorH = toTravelR.getRadians();
@@ -426,7 +454,6 @@ public class Hardware2026 {
             prevErrorH = errorH;
 
 
-
             Log.i("FTC18 driveByOtos", String.format("Current Pos - X: %.2f, Y: %.2f, H: %.2f", pos.x, pos.y, pos.h));
             Log.i("FTC18 driveByOtos", String.format("Target Pos  - X: %.2f, Y: %.2f, H: %.2f", target.getTranslation().getX(), target.getTranslation().getY(), target.getRotation().getDegrees()));
             Log.i("FTC18 driveByOtos", String.format("Distance to Target: %.2f, Heading Error: %.2f", toTravelD, errorH));
@@ -457,6 +484,8 @@ public class Hardware2026 {
     }
     //Goes straight by encoder (takes distance)
 
+
+    //----------------------------------Drive-Methods-(no-OTOS)-----------------------------------//
     public void straightByEncoder(double speed, double distance, double timeout) {
         int newLeftFrontTarget;
         int newLeftBackTarget;
@@ -569,16 +598,16 @@ public class Hardware2026 {
 
         // Convert translational motion to wheel distances
         // Standard mecanum forward/strafe equations
-        double lfDist =  forwardInches + strafeInches + turnInches;
-        double rfDist =  forwardInches - strafeInches - turnInches;
-        double lbDist =  forwardInches - strafeInches + turnInches;
-        double rbDist =  forwardInches + strafeInches - turnInches;
+        double lfDist = forwardInches + strafeInches + turnInches;
+        double rfDist = forwardInches - strafeInches - turnInches;
+        double lbDist = forwardInches - strafeInches + turnInches;
+        double rbDist = forwardInches + strafeInches - turnInches;
 
         // Convert to encoder counts
-        int lfTarget = leftFrontDrive.getCurrentPosition() + (int)(lfDist * COUNTS_PER_INCH);
-        int rfTarget = rightFrontDrive.getCurrentPosition() + (int)(rfDist * COUNTS_PER_INCH);
-        int lbTarget = leftBackDrive.getCurrentPosition()  + (int)(lbDist * COUNTS_PER_INCH);
-        int rbTarget = rightBackDrive.getCurrentPosition() + (int)(rbDist * COUNTS_PER_INCH);
+        int lfTarget = leftFrontDrive.getCurrentPosition() + (int) (lfDist * COUNTS_PER_INCH);
+        int rfTarget = rightFrontDrive.getCurrentPosition() + (int) (rfDist * COUNTS_PER_INCH);
+        int lbTarget = leftBackDrive.getCurrentPosition() + (int) (lbDist * COUNTS_PER_INCH);
+        int rbTarget = rightBackDrive.getCurrentPosition() + (int) (rbDist * COUNTS_PER_INCH);
 
         // Apply target positions
         leftFrontDrive.setTargetPosition(lfTarget);
@@ -601,7 +630,7 @@ public class Hardware2026 {
         while (myOpMode.opModeIsActive() &&
                 runtime.seconds() < timeout &&
                 (leftFrontDrive.isBusy() || rightFrontDrive.isBusy() ||
-                        leftBackDrive.isBusy()  || rightBackDrive.isBusy())) {
+                        leftBackDrive.isBusy() || rightBackDrive.isBusy())) {
 
             myOpMode.telemetry.addData("Targets", "LF:%d RF:%d LB:%d RB:%d",
                     lfTarget, rfTarget, lbTarget, rbTarget);
@@ -702,6 +731,7 @@ public class Hardware2026 {
         rightFrontDrive.setPower(frontRightPower);
         rightBackDrive.setPower(backRightPower);
     }
+
     public void setMotorMode(DcMotor.RunMode motorMode) {
         leftFrontDrive.setMode(motorMode);
         leftBackDrive.setMode(motorMode);
@@ -722,6 +752,7 @@ public class Hardware2026 {
     public void resetYaw() {
         imu.resetYaw();
     }
+
     public void turnToHeading(double maxTurnSpeed, double heading) {
         getSteeringCorrection(heading, P_DRIVE_GAIN);
         while (myOpMode.opModeIsActive() && (((Math.abs(headingError - 180)) > HEADING_THRESHOLD))) {
@@ -764,14 +795,30 @@ public class Hardware2026 {
     public void driveDiagonalForTime(double forwardPower, double strafePower, double time) {
         driveTimed(forwardPower, strafePower, 0, time);
     }
-    public void stopRobot(){
+
+    public void stopRobot() {
         leftFrontDrive.setPower(0.01);
         leftBackDrive.setPower(0.01);
         rightFrontDrive.setPower(0.01);
         rightBackDrive.setPower(0.01);
     }
 
-    // Decode 2026 ----------------------------------------------------------------------------
+    /// -----------------------------------------Decode 2026 -----------------------------------------///
+
+    //------------------------------------Turntable-----------------------------------------------//
+
+    public double lowPassFilter(double previous, double current) {
+        return (LPF_ALPHA * previous) + ((1.0 - LPF_ALPHA) * current);
+    }
+
+    public double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    public double getDeltaTime(long lastNs) {
+        return (System.nanoTime() - lastNs) / 1e9;
+    }
+
     public class PID {
         private double kP, kI, kD;
         private double integral = 0.0;
@@ -810,17 +857,26 @@ public class Hardware2026 {
         }
     }
 
-//MOTORS ETC
-
     private PID turnPID = new PID(0.006, 0.00005, 0.00045);
 
-    private double filteredBearing = 0.0;
+    public void applyPID(double error, double dt) {
+        double power = turnPID.update(error, dt);
+        turnPID.clampIntegral(-100.0, 100.0);
 
-//CONSTANTS
+        power = clamp(power, -MAX_POWER, MAX_POWER);
+        if (Math.abs(power) < 0.02) power = 0.0;
 
-    private static final double MAX_POWER = 0.20;
-    private static final double DEADBAND_DEG = 4.0;
-    private static final double LPF_ALPHA = 0.6;
+        turntableMotor.setPower(power);
+        myOpMode.telemetry.addData("pidPower", power);
+    }
+
+    public AprilTagDetection getTagById(int id) {
+        List<AprilTagDetection> detections = aprilTag.getDetections();
+        for (AprilTagDetection d : detections) {
+            if (d.id == id) return d;
+        }
+        return null;
+    }
 
     public void handleTagTracking(AprilTagDetection tag, double dt) {
         double rawBearing = tag.ftcPose.bearing;
@@ -838,104 +894,10 @@ public class Hardware2026 {
 //        myOpMode.telemetry.addData("filteredBearing", filteredBearing);
     }
 
-    public void applyPID(double error, double dt) {
-        double power = turnPID.update(error, dt);
-        turnPID.clampIntegral(-100.0, 100.0);
-
-        power = clamp(power, -MAX_POWER, MAX_POWER);
-        if (Math.abs(power) < 0.02) power = 0.0;
-
-        turntableMotor.setPower(power);
-        myOpMode.telemetry.addData("pidPower", power);
-    }
-
     public void stopTurret() {
         turntableMotor.setPower(0.0);
         turnPID.reset();
     }
-
-
-    public AprilTagDetection getTagById(int id) {
-        List<AprilTagDetection> detections = aprilTag.getDetections();
-        for (AprilTagDetection d : detections) {
-            if (d.id == id) return d;
-        }
-        return null;
-    }
-
-    public double lowPassFilter(double previous, double current) {
-        return (LPF_ALPHA * previous) + ((1.0 - LPF_ALPHA) * current);
-    }
-
-    public double clamp(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
-    public double getDeltaTime(long lastNs) {
-        return (System.nanoTime() - lastNs) / 1e9;
-    }
-    public void updateTurntableToFaceTarget() {
-        double TARGET_FIELD_X = 5.5*24;   // your target X in field coordinates (inches or units)
-        double TARGET_FIELD_Y = 5.5*24;   // your target Y
-        double ROBOT_START_FIELD_X = 2.5*24; // robot start X
-        double ROBOT_START_FIELD_Y = 1;  // robot start Y
-
-        SparkFunOTOS.Pose2D pos = myOtos.getPosition();
-        if (pos == null) return;
-
-        double robotX = pos.x + ROBOT_START_FIELD_X;
-        double robotY = pos.y + ROBOT_START_FIELD_Y;
-        double robotHeading = ((pos.h % 360) + 360) % 360;
-
-        double targetX = TARGET_FIELD_X - robotX;
-        double targetY = TARGET_FIELD_Y - robotY;
-
-        double angleToTarget = Math.toDegrees(Math.atan2(targetY, targetX));
-
-        double error = angleToTarget - robotHeading;
-
-        if (Math.hypot(targetX, targetY) < 2.0) return;
-        if (Math.abs(error) < 1.5) error = 0.0;
-
-        error = ((error + 540) % 360) - 180;
-
-        myOpMode.telemetry.addData("Robot Pos", "X=%.2f Y=%.2f H=%.2f", robotX, robotY, robotHeading);
-        myOpMode.telemetry.addData("Target OTOS", "X=%.2f Y=%.2f", targetX, targetY);
-        myOpMode.telemetry.addData("Angle Error", "%.2f", error);
-
-        setTurntableAngle(error,.8);
-
-    }
-    public void setTurntableAngle(double desiredAngleDegrees) {
-
-        double countsPerDegree = 39.0 / 90.0;
-        double toleranceDegrees = 2.0; // ±2 degrees wiggle room
-        int toleranceCounts = (int)Math.round(toleranceDegrees * countsPerDegree);
-
-        int targetCounts = (int)Math.round(desiredAngleDegrees * countsPerDegree);
-        int currentCounts = turntableMotor.getCurrentPosition();
-
-        double power = 1.0;
-
-        if (Math.abs(targetCounts - currentCounts) > toleranceCounts) {
-            turntableMotor.setTargetPosition(targetCounts);
-            turntableMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            turntableMotor.setPower(power);
-        } else {
-            turntableMotor.setPower(0); // stop if within tolerance
-        }
-
-//        myOpMode.telemetry.addData("Turret Angle (deg)", desiredAngleDegrees);
-//        myOpMode.telemetry.addData("Turret Target Counts", targetCounts);
-//        myOpMode.telemetry.addData("Turret Current Counts", currentCounts);
-//        myOpMode.telemetry.addData("Within Tolerance", Math.abs(targetCounts - currentCounts) <= toleranceCounts);
-//        myOpMode.telemetry.update();
-    }
-
-    public static final double MOTOR_ENCODER_PPR = 7.0;
-    public static final double GEAR_RATIO = 90.0 / 15.0; // 6.0
-    public static final double COUNTS_PER_OUTPUT_REV = MOTOR_ENCODER_PPR * GEAR_RATIO; // 42
-    public static final double COUNTS_PER_DEGREE = COUNTS_PER_OUTPUT_REV / 360.0; // 0.1166667
 
     public void setTurntableAngle(double targetDegrees, double maxPower) {
 
@@ -948,14 +910,14 @@ public class Hardware2026 {
         // Ensure power is always positive for RUN_TO_POSITION
         turntableMotor.setPower(Math.abs(maxPower));
     }
-//    public void spinTake(double intake_power) {
-//        spinTakeRight.setPower(-intake_power);
-//        spinTakeLeft.setPower(intake_power);
-//    }
-//    public void stopSpinTake() {
-//        spinTakeRight.setPower(0);
-//        spinTakeLeft.setPower(0);
-//    }
+
+
+    //-------------------------------------------Daisy------------------------------------------------//
+    public String colorName(int c) {
+        if (c == COLOR_GREEN) return "GREEN";
+        if (c == COLOR_PURPLE) return "PURPLE";
+        else return "NONE";
+    }
 
     public void daisySpin(double daisy_power, int artifacts) {
         daisy.setPower(daisy_power);
@@ -980,53 +942,23 @@ public class Hardware2026 {
         }
     }
 
-    public void turntable(double intake_power) {
-        turntableMotor.setPower(intake_power);
-    }
-
-    public double powerControl() {
-        SparkFunOTOS.Pose2D pos = myOtos.getPosition(); // Get position
-
-        double yPos = pos.y;
-        double power = .8;
-
-        if (yPos>=0 && yPos <=10) {
-            power = 1;
-        }
-        else if (yPos>=30 && yPos <=40) {
-            power = .78;
-        }
-        else if (yPos>=30 && yPos <=50) {
-            power = .5;
-        }
-        else {
-            power = .8;
-        }
-        return power;
-    }
-
     public void moveToVoltage(double target) {
-        ElapsedTime timer = new ElapsedTime();
-        timer.reset();
+        daisyTarget = target;
+        daisyTimer.reset();
+        daisyMoving = true;
+    }
 
-        while (myOpMode.opModeIsActive() && timer.seconds() < 3.0) { // 3-second safety timeout
-            double current = positionSensor.getVoltage();
+    public void updateDaisy() {
+        if (!daisyMoving) return; // Not moving, do nothing
 
-            // Check if we reached target
-            if (Math.abs(target - current) < TOLERANCE) {
-                break;
-            }
+        double current = positionSensor.getVoltage();
 
-            // ALWAYS POSITIVE POWER - Only moves forward
-            daisy.setPower(SERVO_POWER);
-
-            if (myOpMode.gamepad1.left_bumper) break; // Manual emergency stop
-
-//            myOpMode.telemetry.addData("Seeking Target", target);
-//            myOpMode.telemetry.addData("Current Volt", "%.3f", current);
-            myOpMode.telemetry.update();
+        // Check if we reached target
+        if (Math.abs(daisyTarget - current) < TOLERANCE || daisyTimer.seconds() > 3.0) {
+            daisy.setPower(0);
+            daisyMoving = false;
+            return;
         }
-        daisy.setPower(0);
     }
 
     public int getClosestPosition(double voltage) {
@@ -1043,19 +975,22 @@ public class Hardware2026 {
         float hue = hsv[0];
 
         if (hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX) {
-            greenCount++; purpleCount = 0;
+            greenCount++;
+            purpleCount = 0;
             if (greenCount >= STABLE_NEEDED) {
                 spotColors[index] = COLOR_GREEN;
                 spotLocked[index] = true;
             }
         } else if (hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX) {
-            purpleCount++; greenCount = 0;
+            purpleCount++;
+            greenCount = 0;
             if (purpleCount >= STABLE_NEEDED) {
                 spotColors[index] = COLOR_PURPLE;
                 spotLocked[index] = true;
             }
         } else {
-            greenCount = 0; purpleCount = 0;
+            greenCount = 0;
+            purpleCount = 0;
         }
     }
 
@@ -1072,15 +1007,16 @@ public class Hardware2026 {
 
         String color = "";
 
-        if ((hueLeft >= GREEN_HUE_MIN && hueLeft <= GREEN_HUE_MAX)||(hueRight >= GREEN_HUE_MIN && hueRight <= GREEN_HUE_MAX)) {
+        if ((hueLeft >= GREEN_HUE_MIN && hueLeft <= GREEN_HUE_MAX) || (hueRight >= GREEN_HUE_MIN && hueRight <= GREEN_HUE_MAX)) {
             color = "GREEN";
 
-        } else if ((hueLeft >= PURPLE_HUE_MIN && hueLeft <= PURPLE_HUE_MAX)||(hueRight >= PURPLE_HUE_MIN && hueRight <= PURPLE_HUE_MAX)) {
+        } else if ((hueLeft >= PURPLE_HUE_MIN && hueLeft <= PURPLE_HUE_MAX) || (hueRight >= PURPLE_HUE_MIN && hueRight <= PURPLE_HUE_MAX)) {
             color = "PURPLE";
         }
         return color;
     }
-    public void goToNext (){
+
+    public void goToNext() {
         double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
 
@@ -1103,9 +1039,11 @@ public class Hardware2026 {
 
         // Execute the movement using your one-way logic
         moveToVoltage(POSITIONS[nextIndex]);
+        updateDaisy();
 
     }
-    public void goToLast (){
+
+    public void goToLast() {
         daisy.setPower(0);
         double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
@@ -1128,13 +1066,30 @@ public class Hardware2026 {
 
         // Execute the movement using your one-way logic
         moveToVoltage(POSITIONS[lastIndex]);
+        updateDaisy();
 
     }
 
+    public void waitAndSpin() {
+        int nextIndex = (getClosestPosition(positionSensor.getVoltage()) + 1) % POSITIONS.length;
+        moveToVoltage(POSITIONS[nextIndex]);
+        updateDaisy();
+    }
+
+    public void resetSystem() {
+        for (int i = 0; i < 3; i++) {
+            spotColors[i] = COLOR_NONE;
+            spotLocked[i] = false;
+        }
+        greenCount = 0;
+        purpleCount = 0;
+    }
+
+    //--------------------------------------Launcher----------------------------------------------//
 
     public void shootBall() {
         launcherDoorOpen();
-        startLauncherControlled(powerControl());
+        startLauncherVelocity(3000);
         myOpMode.sleep(500);
         double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
@@ -1169,9 +1124,9 @@ public class Hardware2026 {
         /// close launcher door
     }
 
-    public void shootBallControlled(double power) {
+    public void shootBallControlled(int power) {
         launcherDoorOpen();
-        startLauncherControlled(power);
+        startLauncherVelocity(power);
         myOpMode.sleep(500);
         double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
@@ -1205,9 +1160,10 @@ public class Hardware2026 {
         launcherDoorClosed();
         /// close launcher door
     }
+
     public void shootBalls() {
         launcherDoorOpen();
-        startLauncherControlled(powerControl());
+        startLauncherVelocity(1000);
         myOpMode.sleep(500);
         double currentVoltage = positionSensor.getVoltage();
         int currentPosIndex = getClosestPosition(currentVoltage);
@@ -1230,102 +1186,127 @@ public class Hardware2026 {
         }
 
         double targetVoltage = currentVoltage + 3 * (POSITIONS[1] - POSITIONS[0]);
-// assuming positions are evenly spaced, difference between spots
 
         moveToVoltage(targetVoltage);
         myOpMode.sleep(500);
-//
-//        // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
-//        int nextIndex = (currentPosIndex + 3) % POSITIONS.length;
-//
-//        // Execute the movement using your one-way logic
-//        moveToVoltage(POSITIONS[nextIndex]);
-//        myOpMode.sleep(500);
 
         stopLauncher();
         launcherDoorClosed();
-        /// close launcher door
     }
-    public void startLauncher(){
+
+    public void shootBallsControlled(int power) {
+        launcherDoorOpen();
+        startLauncherVelocity(power);
+        myOpMode.sleep(500);
+        double currentVoltage = positionSensor.getVoltage();
+        int currentPosIndex = getClosestPosition(currentVoltage);
+
+        // If we are between spots, find the mathematically closest index
+        if (currentPosIndex == -1) {
+            double minDiff = Double.MAX_VALUE;
+            for (int i = 0; i < POSITIONS.length; i++) {
+                double diff = Math.abs(currentVoltage - POSITIONS[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    currentPosIndex = i;
+                }
+            }
+
+        }
+        if (currentPosIndex != -1) {
+            spotColors[currentPosIndex] = COLOR_NONE;
+            spotLocked[currentPosIndex] = false;
+        }
+
+        double targetVoltage = currentVoltage + 3 * (POSITIONS[1] - POSITIONS[0]);
+
+        moveToVoltage(targetVoltage);
+        myOpMode.sleep(500);
+
+        stopLauncher();
+        launcherDoorClosed();
+    }
+
+    public void startLauncher() {
         shooterRight.setPower(1);
         shooterLeft.setPower(1);
     }
 
-    public void startLauncherControlled(double power){
+    public void startLauncherControlled(double power) {
         shooterRight.setPower(power);
         shooterLeft.setPower(power);
     }
-    public void stopLauncher(){
+
+    public void startLauncherVelocity(double rpm) {
+        double velocityTicksPerSec = (rpm * 28) / 60.0;
+
+        shooterRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooterLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        shooterRight.setVelocity(velocityTicksPerSec);
+        shooterLeft.setVelocity(velocityTicksPerSec);
+    }
+
+    public void stopLauncher() {
         shooterRight.setPower(0);
         shooterLeft.setPower(0);
     }
 
-    public void resetSystem() {
-        for (int i = 0; i < 3; i++) {
-            spotColors[i] = COLOR_NONE;
-            spotLocked[i] = false;
+    public int powerControl(int targetId) {
+        int powerOutput = 2300;
+        AprilTagDetection tag = null;
+        List<AprilTagDetection> detections = aprilTag.getDetections();
+
+        for (AprilTagDetection d : detections) {
+            if (d.id == targetId) {
+                tag = d;
+                break;
+            }
         }
-        greenCount = 0; purpleCount = 0;
+
+        if (tag != null && tag.ftcPose != null) {
+            double y = tag.ftcPose.y;
+
+            myOpMode.telemetry.addData("Detected Tag", tag.id);
+            myOpMode.telemetry.addData("YDistance", y);
+
+            if (y > 70 && y <= 80) {
+                powerOutput = 2200;
+            } else if (y > 60 && y <= 70) {
+                powerOutput = 2050;
+            } else if (y > 50 && y <= 60) {
+                powerOutput = 1900;
+            } else if (y > 40 && y <= 50) {
+                powerOutput = 1800;
+            }
+
+        }
+        return powerOutput;
     }
 
+    //---------------------------------------Launching--------------------------------------------//
     public void updateAprilTagOrder() {
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
         for (AprilTagDetection detection : currentDetections) {
             if (detection.id == 21) {
-                shootingOrder[0] = COLOR_GREEN; shootingOrder[1] = COLOR_PURPLE; shootingOrder[2] = COLOR_PURPLE;
+                shootingOrder[0] = COLOR_GREEN;
+                shootingOrder[1] = COLOR_PURPLE;
+                shootingOrder[2] = COLOR_PURPLE;
 
             } else if (detection.id == 22) {
-                shootingOrder[0] = COLOR_PURPLE; shootingOrder[1] = COLOR_GREEN; shootingOrder[2] = COLOR_PURPLE;
+                shootingOrder[0] = COLOR_PURPLE;
+                shootingOrder[1] = COLOR_GREEN;
+                shootingOrder[2] = COLOR_PURPLE;
 
             } else if (detection.id == 23) {
-                shootingOrder[0] = COLOR_PURPLE; shootingOrder[1] = COLOR_PURPLE; shootingOrder[2] = COLOR_GREEN;
+                shootingOrder[0] = COLOR_PURPLE;
+                shootingOrder[1] = COLOR_PURPLE;
+                shootingOrder[2] = COLOR_GREEN;
 
             }
         }
         myOpMode.telemetry.update();
     }
-
-    public void updateTelemetry(double volt, int pos) {
-        myOpMode.telemetry.addData("Voltage", "%.2f", volt);
-        myOpMode.telemetry.addData("Position", pos == -1 ? "MOVING" : (pos + 1));
-        myOpMode.telemetry.addData("Voltage", "%.2f", volt);
-        myOpMode.telemetry.addData("Position", pos == -1 ? "MOVING" : (pos + 1));
-
-        myOpMode.telemetry.addLine("--- Spots ---");
-        for (int i=0; i<3; i++) {
-            myOpMode.telemetry.addData("Spot " + (i+1), spotLocked[i] ? colorName(spotColors[i]) : "EMPTY");
-        }
-
-        List<AprilTagDetection> currentDetections = aprilTag.getDetections();
-        for (AprilTagDetection detection : currentDetections) {
-            if (detection.id == 21) {
-                myOpMode.telemetry.addData("Pattern", "GPP");
-            } else if (detection.id == 22) {
-                myOpMode.telemetry.addData("Pattern", "PGP");
-            } else if (detection.id == 23) {
-                myOpMode.telemetry.addData("Pattern", "PPG");
-            }
-        }
-        driveWithOtos();
-        myOpMode.telemetry.addData("Launcher Speed:", shooterLeft.getPower());
-        myOpMode.telemetry.addData("Launcher Speed:", shooterRight.getPower());
-        myOpMode.telemetry.addData("Launcher Speed:", powerControl());
-
-        myOpMode.telemetry.update();
-
-    }
-    public void allTelemetry() {
-
-        myOpMode.telemetry.update();
-    }
-
-
-
-    public void waitAndSpin() {
-        int nextIndex = (getClosestPosition(positionSensor.getVoltage()) + 1) % POSITIONS.length;
-        moveToVoltage(POSITIONS[nextIndex]);
-    }
-
 
     public void shootColor(String color) {
         if (returnCurrentSpot().equals(color)) {
@@ -1353,22 +1334,54 @@ public class Hardware2026 {
         }
     }
 
-//    public void runAutoLaunch() {
-//        if (shootingOrder[0] == COLOR_NONE) return;
-//
-//        for (int targetColor : shootingOrder) {
-//            for (int i = 0; i < 3; i++) {
-//                if (spotColors[i] == targetColor && spotLocked[i]) {
-//                    moveToVoltage(POSITIONS[i]);
-//                    shootBall();
-//                    myOpMode.sleep(800);
-//                    spotColors[i] = COLOR_NONE;
-//                    spotLocked[i] = false;
-//                    break;
-//                }
-//            }
-//        }
-//    }
+    public void shootColor(int targetColor) {
+        ElapsedTime timer = new ElapsedTime();
+        timer.reset();
+
+        daisy.setPower(SERVO_POWER); // always forward
+
+        while (myOpMode.opModeIsActive() && timer.seconds() < 4.0) { // safety timeout
+            double voltage = positionSensor.getVoltage();
+            int posIndex = getClosestPosition(voltage);
+
+            // Only consider detection if we're at a valid position
+            if (posIndex != -1) {
+                NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
+                float[] hsv = new float[3];
+                Color.colorToHSV(c.toColor(), hsv);
+                float hue = hsv[0];
+
+                boolean greenDetected =
+                        targetColor == COLOR_GREEN &&
+                                hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX;
+
+                boolean purpleDetected =
+                        targetColor == COLOR_PURPLE &&
+                                hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX;
+
+                if (greenDetected || purpleDetected) {
+                    daisy.setPower(0);
+
+                    // Lock this spot
+                    spotColors[posIndex] = targetColor;
+                    spotLocked[posIndex] = true;
+
+                    // Shoot one ball
+                    shootBall();
+
+                    // Clear after shot
+
+                    return;
+                }
+            }
+
+            myOpMode.telemetry.addData("Seeking", colorName(targetColor));
+            myOpMode.telemetry.addData("Voltage", "%.2f", voltage);
+            myOpMode.telemetry.update();
+        }
+
+        daisy.setPower(0); // timeout safety stop
+    }
 
     public void runAutoLaunch() {
         if (shootingOrder[0] == COLOR_NONE) return;
@@ -1432,55 +1445,6 @@ public class Hardware2026 {
         }
     }
 
-    public void shootColor(int targetColor) {
-        ElapsedTime timer = new ElapsedTime();
-        timer.reset();
-
-        daisy.setPower(SERVO_POWER); // always forward
-
-        while (myOpMode.opModeIsActive() && timer.seconds() < 4.0) { // safety timeout
-            double voltage = positionSensor.getVoltage();
-            int posIndex = getClosestPosition(voltage);
-
-            // Only consider detection if we're at a valid position
-            if (posIndex != -1) {
-                NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
-                float[] hsv = new float[3];
-                Color.colorToHSV(c.toColor(), hsv);
-                float hue = hsv[0];
-
-                boolean greenDetected =
-                        targetColor == COLOR_GREEN &&
-                                hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX;
-
-                boolean purpleDetected =
-                        targetColor == COLOR_PURPLE &&
-                                hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX;
-
-                if (greenDetected || purpleDetected) {
-                    daisy.setPower(0);
-
-                    // Lock this spot
-                    spotColors[posIndex] = targetColor;
-                    spotLocked[posIndex] = true;
-
-                    // Shoot one ball
-                    shootBall();
-
-                    // Clear after shot
-
-                    return;
-                }
-            }
-
-            myOpMode.telemetry.addData("Seeking", colorName(targetColor));
-            myOpMode.telemetry.addData("Voltage", "%.2f", voltage);
-            myOpMode.telemetry.update();
-        }
-
-        daisy.setPower(0); // timeout safety stop
-    }
-
     public void launcherDoorOpen() {
         launcherDoor.setPosition(LAUNCHER_DOOR_OPEN);
     }
@@ -1488,6 +1452,8 @@ public class Hardware2026 {
     public void launcherDoorClosed() {
         launcherDoor.setPosition(LAUNCHER_DOOR_CLOSED);
     }
+
+    //---------------------------------------Auto-Stuff-------------------------------------------//
 
     public String patternDecision() {
         String pattern = "";
@@ -1512,40 +1478,61 @@ public class Hardware2026 {
         return pattern;
     }
 
-
-    //autonomous stuff!
     public void autoGPP(double power) {
         //just shoot all three
-        shootBallControlled(power);
-        shootBallControlled(power);
-        shootBallControlled(power);
+        shootBall();
+        shootBall();
+        shootBall();
     }
 
     public void autoPGP(double power) {
         waitAndSpin();
-        shootBallControlled(power);
+        shootBall();
         waitAndSpin();
-        shootBallControlled(power);
+        shootBall();
         waitAndSpin();
-        shootBallControlled(power);
+        shootBall();
         //wait and spin G, shoot P, wait and spin P, shoot G, empty spot spin, shoot P
     }
 
     public void autoPPG(double power) {
         waitAndSpin();
-        shootBallControlled(power);
-        shootBallControlled(power);
-        shootBallControlled(power);
+        shootBall();
+        shootBall();
+        shootBall();
         //wait and spin G, shoot P and P and G
     }
 
+    //-------------------------------------Telemetry----------------------------------------------//
+    public void updateTelemetry(double volt, int pos) {
+        myOpMode.telemetry.addData("Voltage", "%.2f", volt);
+        myOpMode.telemetry.addData("Position", pos == -1 ? "MOVING" : (pos + 1));
+        myOpMode.telemetry.addData("Voltage", "%.2f", volt);
+        myOpMode.telemetry.addData("Position", pos == -1 ? "MOVING" : (pos + 1));
 
+        myOpMode.telemetry.addLine("--- Spots ---");
+        for (int i = 0; i < 3; i++) {
+            myOpMode.telemetry.addData("Spot " + (i + 1), spotLocked[i] ? colorName(spotColors[i]) : "EMPTY");
+        }
 
-    public String colorName(int c) {
-        if (c == COLOR_GREEN) return "GREEN";
-        if (c == COLOR_PURPLE) return "PURPLE";
-        else return "NONE";
+        List<AprilTagDetection> currentDetections = aprilTag.getDetections();
+        for (AprilTagDetection detection : currentDetections) {
+            if (detection.id == 21) {
+                myOpMode.telemetry.addData("Pattern", "GPP");
+            } else if (detection.id == 22) {
+                myOpMode.telemetry.addData("Pattern", "PGP");
+            } else if (detection.id == 23) {
+                myOpMode.telemetry.addData("Pattern", "PPG");
+            }
+        }
+        driveWithOtos();
+        myOpMode.telemetry.addData("Launcher Speed:", shooterLeft.getPower());
+        myOpMode.telemetry.addData("Launcher Speed:", shooterRight.getPower());
+
+        myOpMode.telemetry.update();
+
     }
+
 }
 
 
