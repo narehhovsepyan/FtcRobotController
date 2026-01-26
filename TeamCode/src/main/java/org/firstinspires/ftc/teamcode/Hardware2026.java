@@ -918,30 +918,6 @@ public class Hardware2026 {
         if (c == COLOR_PURPLE) return "PURPLE";
         else return "NONE";
     }
-
-    public void daisySpin(double daisy_power, int artifacts) {
-        daisy.setPower(daisy_power);
-        int time = 450 * artifacts;
-        myOpMode.sleep(time);
-        daisy.setPower(0);
-    }
-
-    public void startDaisySpin(double daisy_power, int artifacts) {
-        daisySpinDuration = 450 * artifacts; // how long to run
-        daisy.setPower(daisy_power);
-        daisyTimer.reset();
-        daisyIsSpinning = true;
-    }
-
-    public void updateDaisySpin() {
-        if (daisyIsSpinning) {
-            if (daisyTimer.milliseconds() >= daisySpinDuration) {
-//                daisy.setPower(0);
-                daisyIsSpinning = false;
-            }
-        }
-    }
-
     public void moveToVoltage(double target) {
         daisyTarget = target;
         daisyTimer.reset();
@@ -949,16 +925,18 @@ public class Hardware2026 {
     }
 
     public void updateDaisy() {
-        if (!daisyMoving) return; // Not moving, do nothing
+        if (!daisyMoving) return;
 
         double current = positionSensor.getVoltage();
+        double error = daisyTarget - current;
 
-        // Check if we reached target
-        if (Math.abs(daisyTarget - current) < TOLERANCE || daisyTimer.seconds() > 3.0) {
+        if (Math.abs(error) < TOLERANCE || daisyTimer.seconds() > 3.0) {
             daisy.setPower(0);
             daisyMoving = false;
             return;
         }
+
+        daisy.setPower(Math.signum(error) * SERVO_POWER);
     }
 
     public int getClosestPosition(double voltage) {
@@ -1032,15 +1010,12 @@ public class Hardware2026 {
             }
         }
 
-
         // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
         int nextIndex = (currentPosIndex + 1) % POSITIONS.length;
         int lastIndex = (currentPosIndex - 1) % POSITIONS.length;
 
         // Execute the movement using your one-way logic
         moveToVoltage(POSITIONS[nextIndex]);
-        updateDaisy();
-
     }
 
     public void goToLast() {
@@ -1066,14 +1041,6 @@ public class Hardware2026 {
 
         // Execute the movement using your one-way logic
         moveToVoltage(POSITIONS[lastIndex]);
-        updateDaisy();
-
-    }
-
-    public void waitAndSpin() {
-        int nextIndex = (getClosestPosition(positionSensor.getVoltage()) + 1) % POSITIONS.length;
-        moveToVoltage(POSITIONS[nextIndex]);
-        updateDaisy();
     }
 
     public void resetSystem() {
@@ -1086,145 +1053,64 @@ public class Hardware2026 {
     }
 
     //--------------------------------------Launcher----------------------------------------------//
+    ShootState shootState = ShootState.IDLE;
+    ElapsedTime shootTimer = new ElapsedTime();
 
-    public void shootBall() {
-        launcherDoorOpen();
-        startLauncherVelocity(3000);
-        myOpMode.sleep(500);
-        double currentVoltage = positionSensor.getVoltage();
-        int currentPosIndex = getClosestPosition(currentVoltage);
+    int ballsToShoot = 0;
+    double shootRPM = 0;
 
-        // If we are between spots, find the mathematically closest index
-        if (currentPosIndex == -1) {
-            double minDiff = Double.MAX_VALUE;
-            for (int i = 0; i < POSITIONS.length; i++) {
-                double diff = Math.abs(currentVoltage - POSITIONS[i]);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    currentPosIndex = i;
-                }
-            }
-
-        }
-        if (currentPosIndex != -1) {
-            spotColors[currentPosIndex] = COLOR_NONE;
-            spotLocked[currentPosIndex] = false;
-        }
-
-
-        // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
-        int nextIndex = (currentPosIndex + 1) % POSITIONS.length;
-
-        // Execute the movement using your one-way logic
-        moveToVoltage(POSITIONS[nextIndex]);
-        myOpMode.sleep(500);
-
-        stopLauncher();
-        launcherDoorClosed();
-        /// close launcher door
+    enum ShootState {
+        IDLE,
+        SPIN_UP,
+        ADVANCING,
+        FINISH
     }
 
-    public void shootBallControlled(int power) {
+    public void startShoot(double rpm, int balls) {
+        if (shootState != ShootState.IDLE) return;
+
+        shootRPM = rpm;
+        ballsToShoot = balls;
+
         launcherDoorOpen();
-        startLauncherVelocity(power);
-        myOpMode.sleep(500);
-        double currentVoltage = positionSensor.getVoltage();
-        int currentPosIndex = getClosestPosition(currentVoltage);
+        startLauncherVelocity(rpm);
 
-        // If we are between spots, find the mathematically closest index
-        if (currentPosIndex == -1) {
-            double minDiff = Double.MAX_VALUE;
-            for (int i = 0; i < POSITIONS.length; i++) {
-                double diff = Math.abs(currentVoltage - POSITIONS[i]);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    currentPosIndex = i;
-                }
-            }
-
-        }
-        if (currentPosIndex != -1) {
-            spotColors[currentPosIndex] = COLOR_NONE;
-            spotLocked[currentPosIndex] = false;
-        }
-
-
-        // Determine the next position in the sequence (0 -> 1 -> 2 -> 0)
-        int nextIndex = (currentPosIndex + 1) % POSITIONS.length;
-
-        // Execute the movement using your one-way logic
-        moveToVoltage(POSITIONS[nextIndex]);
-        myOpMode.sleep(500);
-
-        stopLauncher();
-        launcherDoorClosed();
-        /// close launcher door
+        shootTimer.reset();
+        shootState = ShootState.SPIN_UP;
     }
 
-    public void shootBalls() {
-        launcherDoorOpen();
-        startLauncherVelocity(1000);
-        myOpMode.sleep(500);
-        double currentVoltage = positionSensor.getVoltage();
-        int currentPosIndex = getClosestPosition(currentVoltage);
+    public void updateShoot() {
+        if (shootState == ShootState.IDLE) return;
 
-        // If we are between spots, find the mathematically closest index
-        if (currentPosIndex == -1) {
-            double minDiff = Double.MAX_VALUE;
-            for (int i = 0; i < POSITIONS.length; i++) {
-                double diff = Math.abs(currentVoltage - POSITIONS[i]);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    currentPosIndex = i;
+        switch (shootState) {
+
+            case SPIN_UP:
+                if (shootTimer.milliseconds() >= 500) {
+                    goToNext();   // move daisy once
+                    ballsToShoot = Math.max(0, ballsToShoot - 1);
+
+                    shootTimer.reset();
+                    shootState = ShootState.ADVANCING;
                 }
-            }
+                break;
 
-        }
-        if (currentPosIndex != -1) {
-            spotColors[currentPosIndex] = COLOR_NONE;
-            spotLocked[currentPosIndex] = false;
-        }
-
-        double targetVoltage = currentVoltage + 3 * (POSITIONS[1] - POSITIONS[0]);
-
-        moveToVoltage(targetVoltage);
-        myOpMode.sleep(500);
-
-        stopLauncher();
-        launcherDoorClosed();
-    }
-
-    public void shootBallsControlled(int power) {
-        launcherDoorOpen();
-        startLauncherVelocity(power);
-        myOpMode.sleep(500);
-        double currentVoltage = positionSensor.getVoltage();
-        int currentPosIndex = getClosestPosition(currentVoltage);
-
-        // If we are between spots, find the mathematically closest index
-        if (currentPosIndex == -1) {
-            double minDiff = Double.MAX_VALUE;
-            for (int i = 0; i < POSITIONS.length; i++) {
-                double diff = Math.abs(currentVoltage - POSITIONS[i]);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    currentPosIndex = i;
+            case ADVANCING:
+                if (!daisyMoving) {
+                    if (ballsToShoot > 0) {
+                        shootTimer.reset();
+                        shootState = ShootState.SPIN_UP;
+                    } else {
+                        stopLauncher();
+                        launcherDoorClosed();
+                        shootState = ShootState.FINISH;
+                    }
                 }
-            }
+                break;
 
+            case FINISH:
+                shootState = ShootState.IDLE;
+                break;
         }
-        if (currentPosIndex != -1) {
-            spotColors[currentPosIndex] = COLOR_NONE;
-            spotLocked[currentPosIndex] = false;
-        }
-
-        double targetVoltage = currentVoltage + 3 * (POSITIONS[1] - POSITIONS[0]);
-
-        moveToVoltage(targetVoltage);
-        myOpMode.sleep(500);
-
-        stopLauncher();
-        launcherDoorClosed();
     }
 
     public void startLauncher() {
@@ -1308,141 +1194,71 @@ public class Hardware2026 {
         myOpMode.telemetry.update();
     }
 
-    public void shootColor(String color) {
-        if (returnCurrentSpot().equals(color)) {
-            shootBall();
+    enum SeekState {
+        IDLE,
+        SEEKING,
+        SHOOTING
+    }
+
+    SeekState seekState = SeekState.IDLE;
+    int seekTargetColor = COLOR_NONE;
+
+    public void startSeekColor(int color) {
+        if (seekState != SeekState.IDLE) return;
+
+        seekTargetColor = color;
+        daisy.setPower(SERVO_POWER);
+        seekState = SeekState.SEEKING;
+    }
+
+    public void updateSeekColor() {
+        if (seekState == SeekState.IDLE) return;
+
+        double voltage = positionSensor.getVoltage();
+        int posIndex = getClosestPosition(voltage);
+
+        if (posIndex != -1 && !spotLocked[posIndex]) {
+            NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
+            float[] hsv = new float[3];
+            Color.colorToHSV(c.toColor(), hsv);
+            float hue = hsv[0];
+
+            boolean match =
+                    (seekTargetColor == COLOR_GREEN && hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX) ||
+                            (seekTargetColor == COLOR_PURPLE && hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX);
+
+            if (match) {
+                daisy.setPower(0);
+                spotLocked[posIndex] = true;
+                startShoot(3000, 1);
+                seekState = SeekState.SHOOTING;
+            }
+        }
+
+        if (seekState == SeekState.SHOOTING && shootState == ShootState.IDLE) {
+            seekState = SeekState.IDLE;
+        }
+    }
+
+
+    int autoIndex = 0;
+
+    public void startAutoLaunch() {
+        autoIndex = 0;
+    }
+
+    public void updateAutoLaunch() {
+        if (autoIndex >= shootingOrder.length) return;
+        if (seekState != SeekState.IDLE) return;
+
+        int target = shootingOrder[autoIndex];
+        if (target == COLOR_NONE) {
+            autoIndex++;
             return;
-        } else {
-            launcherDoorClosed();
-            waitAndSpin();
-            if (returnCurrentSpot().equals(color)) { // PROBLEM
-                shootBall();
-                return;
-            } else {
-                launcherDoorClosed();
-                waitAndSpin();
-                if (returnCurrentSpot().equals(color)) {
-                    shootBall();
-                } else {
-                    launcherDoorClosed();
-                    waitAndSpin();
-                    if (returnCurrentSpot().equals(color)) {
-                        shootBall();
-                    }
-                }
-            }
-        }
-    }
-
-    public void shootColor(int targetColor) {
-        ElapsedTime timer = new ElapsedTime();
-        timer.reset();
-
-        daisy.setPower(SERVO_POWER); // always forward
-
-        while (myOpMode.opModeIsActive() && timer.seconds() < 4.0) { // safety timeout
-            double voltage = positionSensor.getVoltage();
-            int posIndex = getClosestPosition(voltage);
-
-            // Only consider detection if we're at a valid position
-            if (posIndex != -1) {
-                NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
-                float[] hsv = new float[3];
-                Color.colorToHSV(c.toColor(), hsv);
-                float hue = hsv[0];
-
-                boolean greenDetected =
-                        targetColor == COLOR_GREEN &&
-                                hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX;
-
-                boolean purpleDetected =
-                        targetColor == COLOR_PURPLE &&
-                                hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX;
-
-                if (greenDetected || purpleDetected) {
-                    daisy.setPower(0);
-
-                    // Lock this spot
-                    spotColors[posIndex] = targetColor;
-                    spotLocked[posIndex] = true;
-
-                    // Shoot one ball
-                    shootBall();
-
-                    // Clear after shot
-
-                    return;
-                }
-            }
-
-            myOpMode.telemetry.addData("Seeking", colorName(targetColor));
-            myOpMode.telemetry.addData("Voltage", "%.2f", voltage);
-            myOpMode.telemetry.update();
         }
 
-        daisy.setPower(0); // timeout safety stop
-    }
-
-    public void runAutoLaunch() {
-        if (shootingOrder[0] == COLOR_NONE) return;
-
-        for (int targetColor : shootingOrder) {
-            ElapsedTime timer = new ElapsedTime();
-            timer.reset();
-
-            daisy.setPower(SERVO_POWER); // always forward
-
-            boolean colorFound = false;
-
-            while (myOpMode.opModeIsActive() && timer.seconds() < 4.0 && !colorFound) { // safety timeout
-                double voltage = positionSensor.getVoltage();
-                int posIndex = getClosestPosition(voltage);
-
-                // Only consider detection if we're at a valid position
-                if (posIndex != -1 && spotLocked[posIndex] == false) {
-                    NormalizedRGBA c = colorSensorLeft.getNormalizedColors();
-                    float[] hsv = new float[3];
-                    Color.colorToHSV(c.toColor(), hsv);
-                    float hue = hsv[0];
-
-                    boolean greenDetected =
-                            targetColor == COLOR_GREEN &&
-                                    hue >= GREEN_HUE_MIN && hue <= GREEN_HUE_MAX;
-
-                    boolean purpleDetected =
-                            targetColor == COLOR_PURPLE &&
-                                    hue >= PURPLE_HUE_MIN && hue <= PURPLE_HUE_MAX;
-
-                    if (greenDetected || purpleDetected) {
-                        daisy.setPower(0);
-
-                        // Lock this spot
-                        spotColors[posIndex] = targetColor;
-                        spotLocked[posIndex] = true;
-
-                        // Move to voltage for this position
-                        moveToVoltage(POSITIONS[posIndex]);
-
-                        // Shoot one ball
-                        shootBall();
-
-                        // Clear after shot
-                        spotColors[posIndex] = COLOR_NONE;
-                        spotLocked[posIndex] = false;
-
-                        colorFound = true;
-                        break;
-                    }
-                }
-
-                // Telemetry for debugging
-                myOpMode.telemetry.addData("Seeking", colorName(targetColor));
-                myOpMode.telemetry.addData("Voltage", "%.2f", voltage);
-                myOpMode.telemetry.update();
-            }
-
-            daisy.setPower(0); // safety stop if timed out
-        }
+        startSeekColor(target);
+        autoIndex++;
     }
 
     public void launcherDoorOpen() {
@@ -1480,26 +1296,22 @@ public class Hardware2026 {
 
     public void autoGPP(double power) {
         //just shoot all three
-        shootBall();
-        shootBall();
-        shootBall();
+        startShoot(2300, 3);
     }
 
     public void autoPGP(double power) {
-        waitAndSpin();
-        shootBall();
-        waitAndSpin();
-        shootBall();
-        waitAndSpin();
-        shootBall();
+        goToNext();
+        startShoot(2300, 1);
+        goToNext();
+        startShoot(2300, 1);
+        goToNext();
+        startShoot(2300, 1);
         //wait and spin G, shoot P, wait and spin P, shoot G, empty spot spin, shoot P
     }
 
     public void autoPPG(double power) {
-        waitAndSpin();
-        shootBall();
-        shootBall();
-        shootBall();
+        goToNext();
+        startShoot(2300, 3);
         //wait and spin G, shoot P and P and G
     }
 

@@ -55,9 +55,9 @@ public class Teleop2026BLUE extends LinearOpMode {
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
-
         robot.updateAprilTagOrder();
         long lastNs = System.nanoTime();
+        boolean lastRB = false;
 
         waitForStart();
         runtime.reset();
@@ -66,17 +66,14 @@ public class Teleop2026BLUE extends LinearOpMode {
         while (opModeIsActive()) {
             String pattern = robot.patternDecision();
 
-            //robot.driveWithOtos();
-//            telemetry.update();
-//            telemetry.addData("Turret Encoder", robot.turntableMotor.getCurrentPosition());
-            double ticksFromZero = robot.turntableMotor.getCurrentPosition() / .43;
-//            telemetry.addData("Angle", ticksFromZero);
+            //-----------------------------------GAMEPAD-1----------------------------------------//
 
-            //GAMEPAD 1: Field-centric driving, slowscale, etc.
+            //---RESET-YAW---//
             if (gamepad1.options) {
                 robot.resetYaw();
             }
 
+            //---CHASSIS---//
             double gp1LY = gamepad1.left_stick_y;
             double gp1LX = gamepad1.left_stick_x;
             double gp1RX = gamepad1.right_stick_x;
@@ -97,56 +94,67 @@ public class Teleop2026BLUE extends LinearOpMode {
 
             robot.driveRobotFC(-gp1LY, gp1LX, gp1RX);
 
-            //GAMEPAD 2
-
-            double dt = robot.getDeltaTime(lastNs);
-            lastNs = System.nanoTime();
-
-            AprilTagDetection tag = robot.getTagById(allianceID);
-
-            if (tag != null && tag.ftcPose != null) {
-                robot.handleTagTracking(tag, dt);
-            } else {
-//                robot.stopTurret();
-//                telemetry.addLine("Tag 24 NOT FOUND");
-                double turntable = -gamepad2.left_stick_x;
-                robot.turntableMotor.setPower(turntable);
-            }
-
-            // Shooter and sorter stuff
-            if (gamepad2.start) robot.resetSystem();
+            //-----------------------------------GAMEPAD-2----------------------------------------//
 
             double currentVoltage = robot.positionSensor.getVoltage();
             int currentPosIndex = robot.getClosestPosition(currentVoltage);
 
             robot.updateAprilTagOrder();
+            double dt = robot.getDeltaTime(lastNs);
+            lastNs = System.nanoTime();
+
+            AprilTagDetection tag = robot.getTagById(allianceID);
+
+            if (gamepad2.start) robot.resetSystem();
+
+            //---TURNTABLE---//
+            if (tag != null && tag.ftcPose != null) {
+                robot.handleTagTracking(tag, dt);
+            } else {
+                double turntable = -gamepad2.left_stick_x;
+                robot.turntableMotor.setPower(turntable);
+            }
 
             if (currentPosIndex != -1 && !robot.spotLocked[currentPosIndex]) {
                 robot.scanCurrentSpot(currentPosIndex);
             }
-            if (gamepad2.back) robot.shootBalls();
+
+            //---SHOOT-1---//
+            if (gamepad2.b) {
+                robot.startShoot(3000, 1);
+            }
+
+            //---SHOOT-3---//
+            if (gamepad2.back) {
+                robot.startShoot(3000, 3);
+            }
+
+            //---SHOOT-GREEN---//
             if (gamepad2.a) {
-                robot.launcherDoorOpen();
-                robot.shootColor("GREEN");
-                robot.launcherDoorClosed();
+                robot.startSeekColor(1);
             }
+
+            //---SHOOT-PURPLE---//
             if (gamepad2.x) {
-                robot.launcherDoorOpen();
-                robot.shootColor(2);
-                robot.launcherDoorClosed();
+                robot.startSeekColor(2);
             }
+
+            //---SPIN-ONCE---//
             if (gamepad2.y) {
                robot.goToNext();
             }
-            if (gamepad2.b) {
-                robot.turntableMotor.setPower(0);
-                robot.shootBall();
-            }
-            if (gamepad2.right_bumper) robot.runAutoLaunch();
 
+            //---SHOOT-PATTERN---//
+            if (gamepad2.right_bumper && !lastRB) {
+                robot.startAutoLaunch();
+            }
+            lastRB = gamepad2.right_bumper;
+
+            //---LAUNCHER-DOOR---//
             if (gamepad2.left_bumper) robot.launcherDoorOpen();
             else robot.launcherDoorClosed();
 
+            //---MANUAL-LAUNCHER---//
             if (gamepad2.dpad_up) {
                 robot.startLauncher();
             } else{
@@ -154,7 +162,11 @@ public class Teleop2026BLUE extends LinearOpMode {
             }
 
             robot.updateTelemetry(currentVoltage, currentPosIndex);
-            robot.allTelemetry();
+            robot.updateDaisy();
+            robot.updateShoot();
+            robot.updateSeekColor();
+            robot.updateAutoLaunch();
+
         }
 //        robot.stopCamera();
     }
